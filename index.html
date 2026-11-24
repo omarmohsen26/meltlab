@@ -63,7 +63,7 @@ summary { font-size: 13px; font-weight: 600; cursor: pointer; color: var(--ink2)
 <body>
 <div class="page">
 <h1>Melt Shop Heat Advisor</h1>
-<div class="fact">EAF practice optimizer - v2.1</div>
+<div class="fact">EAF practice optimizer - v2.2</div>
 <p class="intro">Enter the state of the heat; the page computes the energy and mass balance and works out the optimal moves - DRI feed, power, oxygen, jets, carbon injection, slag and alloys - each with its formula and reasoning. Every constant is a generic textbook value you can edit; your plant's data and procedures always win.</p>
 
 <div class="strip" id="strip"></div>
@@ -166,7 +166,7 @@ const K = {
     cInjPerNm3: 0.65,
     feMnGrade: 0.78, feMnRecovery: 0.85,
     feSiGrade: 0.75, feSiRecovery: 0.80,
-    limeCao: 0.92, basicity: 2.0, driGangue: 3.5, doloKgPerT: 20,
+    limeCao: 0.92, basicity: 2.0, driGangue: 3.5, doloKgPerT: 20, feedMaxTph: 160,
     tundishSuperheat: 25, ladleDrop: 55,
 };
 const FIELDS = {
@@ -197,7 +197,7 @@ const FIELDS = {
         ['o2Density', 'O2 density (kg/Nm3)'], ['cInjPerNm3', 'C injection per Nm3 O2 (kg)'],
         ['driGangue', 'DRI gangue SiO2 (%)'], ['limeCao', 'Lime CaO content (0-1)'],
         ['basicity', 'Slag basicity target (B2)'], ['doloKgPerT', 'Dolomite practice (kg/t)'],
-        ['tundishSuperheat', 'Tundish superheat (C)'], ['ladleDrop', 'Ladle temperature drop (C)'],
+        ['tundishSuperheat', 'Tundish superheat (C)'], ['ladleDrop', 'Ladle temperature drop (C)'], ['feedMaxTph', 'Feeder/conveyor max (t/h)'],
         ['feMnGrade', 'FeMn Mn grade (0-1)'], ['feMnRecovery', 'FeMn recovery (0-1)'],
         ['feSiGrade', 'FeSi Si grade (0-1)'], ['feSiRecovery', 'FeSi recovery (0-1)'],
     ],
@@ -276,14 +276,17 @@ function model() {
     const feMn = mnNeed / (konst('feMnGrade') * konst('feMnRecovery'));
     const siNeed = Math.max(numOr('tgtSi', 0.2) - si, 0) * 10 * total;
     const feSi = siNeed / (konst('feSiGrade') * konst('feSiRecovery'));
-    const feedOpt = driRem > 0 ? power * 1000 / konst('eDri') : 0;
+    const feedPhys = driRem > 0 ? power * 1000 / konst('eDri') : 0;
+    const feedMax = konst('feedMaxTph');
+    const feedOpt = Math.min(feedPhys, feedMax);
+    const feederBound = feedPhys > feedMax;
     const expKwhNow = driCharged * konst('eDri') + scrapCharged * konst('eScrap') + Math.max(tNow - 1530, 0) * charged * konst('cpLiquid') * 0.5;
     const expO2Now = o2Total * (charged / Math.max(total, 0.001));
     const expCNow = cTotal * (charged / Math.max(total, 0.001));
     return { total, charged, basket, driTotal, driCharged, driRem, scrapRem, power, c0, ct, tNow, tLiq, tAim, dT,
         eMeltRem, eHeat, credit, eRem, minOn, kwhSoFar, finalKwhT, kgC, o2Total, o2Used, o2Rem,
         window, flowNeeded, jets, perJet, jetAdvice, jetMin, jetMax, cRate, cTotal, sio2, limeTotal, doloTotal,
-        mnNeed, feMn, siNeed, feSi, feedOpt, expKwhNow, expO2Now, expCNow, si, mn };
+        mnNeed, feMn, siNeed, feSi, feedOpt, feedPhys, feedMax, feederBound, expKwhNow, expO2Now, expCNow, si, mn };
 }
 
 function chip(l, v, s) { return '<div class="chip"><span class="l">' + l + '</span><span class="v">' + v + '</span><span class="s">' + s + '</span></div>'; }
@@ -310,14 +313,15 @@ function render() {
     if (m.driRem > 0) {
         const feedAct = num('feed');
         let verdict = 'Feed at the melt rate: faster and unmelted DRI piles up toward a ferrobering collapse; slower and the arc wastes time superheating the bath and the walls.';
+        if (m.feederBound) verdict = 'The power could melt ' + r0(m.feedPhys) + ' t/h, but the feeder caps at ' + r0(m.feedMax) + ' t/h - run it flat out and let the spare power superheat the bath.';
         if (feedAct !== null) {
             const d = (feedAct - m.feedOpt) / m.feedOpt * 100;
-            if (Math.abs(d) <= 10) verdict = 'Your feed is on the melt equilibrium - this is the optimum.';
-            else if (d > 0) verdict = 'You are feeding ' + r0(Math.abs(d)) + '% faster than the power can melt. Expect a skull/ferrobering to build; trim the feed or raise power.';
-            else verdict = 'You are feeding ' + r0(Math.abs(d)) + '% slower than the power can melt. Either feed faster or drop a power step; the arc is idling over liquid steel.';
+            if (Math.abs(d) <= 10) verdict += ' Your feed is at the achievable optimum.';
+            else if (d > 0) verdict += ' You are feeding ' + r0(Math.abs(d)) + '% above the achievable rate. Expect a skull/ferrobering to build; trim the feed.';
+            else verdict += ' You are feeding ' + r0(Math.abs(d)) + '% below the achievable rate. Feed faster, or drop a power step if the feeder cannot.';
         }
         R.push(reco('DRI feed: hold the melt equilibrium', r0(m.feedOpt) + ' t/h (' + r0(m.feedOpt * 1000 / 60) + ' kg/min)',
-            'Feed (t/h) = power (kW) / melt energy (kWh/t) = ' + r0(m.power * 1000) + ' / ' + konst('eDri') + ' = ' + r0(m.feedOpt) + '. ' + r0(m.driRem) + ' t of DRI still to feed = ~' + r0(m.driRem / m.feedOpt * 60) + ' min at this rate.',
+            'Feed (t/h) = min(power (kW) / melt energy (kWh/t), feeder max) = min(' + r0(m.power * 1000) + ' / ' + konst('eDri') + ', ' + r0(m.feedMax) + ') = ' + r0(m.feedOpt) + '. ' + r0(m.driRem) + ' t of DRI still to feed = ~' + r0(m.driRem / m.feedOpt * 60) + ' min at this rate.',
             verdict + ' Melt energy ' + konst('eDri') + ' kWh/t is a generic DRI value - calibrate it from your own heats.'));
     }
     R.push(reco('Energy to tap: ' + r0(m.eRem) + ' kWh to go', '~' + mmss(m.minOn) + ' power-on at ' + r0(m.power) + ' MW' + (m.finalKwhT !== null ? ' - final ~' + r0(m.finalKwhT) + ' kWh/t' : ''),
