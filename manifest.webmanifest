@@ -1,14 +1,35 @@
 {
-  "name": "Melt Shop Heat Advisor",
-  "short_name": "Heat Advisor",
+  "name": "MeltLab",
+  "short_name": "MeltLab",
   "start_url": "./index.html",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#ffffff",
-  "description": "EAF heat advisor: oxygen, jets, temperature, alloys, lime and furnace-life practice with formulas.",
+  "background_color": "#F6F4F0",
+  "theme_color": "#14110F",
+  "description": "EAF heat decision-support tool: oxygen, jets, energy, lime and alloys with formulas. Advisory only.",
   "icons": [
-    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
-    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
-    { "src": "icon-512-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-192-maskable.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "icon-512-maskable.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
   ]
 }
