@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#ffffff">
+<title>Melt Shop Heat Advisor</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<style>
+:root {
+    --ink: #251f21; --ink2: #585254; --hairline: #eae9ea; --teal: #73a89a; --sand: #f4efec;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+* { box-sizing: border-box; margin: 0; }
+body { font-family: -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; color: var(--ink); background: var(--sand); }
+.page { max-width: 720px; margin: 0 auto; background: #fff; min-height: 100vh; padding: 28px 20px 48px; }
+h1 { font-size: 26px; font-weight: 600; letter-spacing: -0.02em; }
+.fact { color: var(--ink2); font-size: 13px; margin-top: 6px; }
+.intro { font-size: 14px; line-height: 1.6; color: var(--ink); margin-top: 14px; }
+.strip { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; margin: 18px 0 8px; }
+.chip { border: 1px solid var(--hairline); border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.chip .l { font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink2); }
+.chip .v { font-size: 17px; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.chip .s { font-size: 11px; color: var(--ink2); font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+section { margin-top: 28px; }
+.sec-label { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--ink2); margin-bottom: 4px; }
+h2 { font-size: 19px; font-weight: 600; letter-spacing: -0.02em; margin-bottom: 10px; }
+.note { font-size: 13px; line-height: 1.6; color: var(--ink2); margin-bottom: 12px; }
+.grid { display: grid; grid-template-columns: 1fr; gap: 10px; }
+@media (min-width: 600px) { .grid { grid-template-columns: 1fr 1fr; } }
+.field { display: flex; flex-direction: column; gap: 4px; }
+.field label { font-size: 12px; color: var(--ink2); }
+.field input { font: inherit; padding: 10px 12px; border: 1px solid var(--hairline); border-radius: 8px; font-variant-numeric: tabular-nums; }
+.field input:focus { outline: 2px solid var(--teal); outline-offset: -1px; }
+.choice { display: flex; gap: 6px; margin: 10px 0; flex-wrap: wrap; }
+.choice button { font: inherit; font-size: 13px; padding: 8px 14px; border-radius: 999px; border: 1px solid var(--hairline); background: #fff; color: var(--ink2); }
+.choice button.on { background: var(--teal); border-color: var(--teal); color: #fff; font-weight: 600; }
+.reco { padding: 16px 0; border-top: 1px solid var(--hairline); }
+.reco:first-child { border-top: none; padding-top: 4px; }
+.reco-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.reco-title { font-weight: 600; font-size: 14px; }
+.reco-value { font-weight: 600; font-size: 14px; color: var(--teal); font-variant-numeric: tabular-nums; text-align: right; }
+.reco-formula { margin-top: 6px; font-family: var(--mono); font-size: 12px; line-height: 1.55; color: var(--ink2); }
+.reco-why { margin-top: 6px; font-size: 13px; line-height: 1.6; color: var(--ink2); }
+.warn { background: var(--sand); border-radius: 12px; padding: 14px 16px; font-size: 13px; line-height: 1.6; }
+.warn b { display: block; margin-bottom: 4px; }
+ol.cal { padding-left: 20px; font-size: 13px; line-height: 1.7; color: var(--ink2); }
+.temps { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; }
+.temps .chip .v { color: var(--teal); }
+footer { margin-top: 36px; font-size: 12px; color: var(--ink2); line-height: 1.6; }
+</style>
+</head>
+<body>
+<div class="page">
+<h1>Melt Shop Heat Advisor</h1>
+<div class="fact">EAF practice tool - v1.0</div>
+<p class="intro">Enter the state of the heat; the page works out the moves - oxygen, jets, temperature, alloys, lime and furnace-life practice - each with its formula and reasoning. All defaults are generic textbook values: adjust every field to your plant, and your plant's procedures always win.</p>
+
+<div class="strip" id="strip"></div>
+
+<section>
+  <div class="sec-label">Preset</div>
+  <div class="field"><label for="preset">Paste a preset line (e.g. C=0.62 T=1580 charge=125 basket=38 jets=2 o2=2400)</label><input id="preset" type="text" autocomplete="off"></div>
+</section>
+
+<section>
+  <div class="sec-label">Inputs</div>
+  <h2>Today's heat</h2>
+  <div class="choice" id="chargeChoice">
+    <button data-v="mix" class="on">DRI + scrap basket</button>
+    <button data-v="dri">100% DRI</button>
+  </div>
+  <div class="grid" id="heatGrid"></div>
+  <div class="choice" id="unitChoice">
+    <button data-v="pct" class="on">Percent (0.85)</button>
+    <button data-v="points">Points (85 = 0.85%)</button>
+  </div>
+  <div class="grid" id="chemGrid" style="margin-top:10px"></div>
+</section>
+
+<section>
+  <div class="sec-label">Inputs</div>
+  <h2>Oxygen and jets</h2>
+  <p class="note">Enter the lances installed, how many run now, and the per-lance flow limit of your equipment.</p>
+  <div class="grid" id="o2Grid"></div>
+</section>
+
+<section>
+  <div class="sec-label">Inputs</div>
+  <h2>Target grade</h2>
+  <div class="grid" id="tgtGrid"></div>
+</section>
+
+<section>
+  <div class="sec-label">Output</div>
+  <h2>Recommended moves</h2>
+  <div id="recos"></div>
+</section>
+
+<section>
+  <div class="sec-label">Output</div>
+  <h2>Key temperatures</h2>
+  <div class="temps" id="temps"></div>
+  <p class="note" style="margin-top:10px">Liquidus = 1536 - (78 x C + 7.6 x Si + 4.9 x Mn + 34 x P + 38 x S), all in weight percent. Billets cast with roughly 20-30 C of superheat in the tundish; the ladle adds its own loss on the way.</p>
+</section>
+
+<section>
+  <div class="sec-label">Guidance</div>
+  <h2>Furnace life</h2>
+  <div id="life"></div>
+</section>
+
+<section>
+  <div class="sec-label">Calibration</div>
+  <h2>Numbers worth replacing with your plant's</h2>
+  <ol class="cal">
+    <li>Lance specification: rated O2 flow and pressure per lance.</li>
+    <li>Alloy grades and the recoveries you actually see for FeMn, FeSi, SiMn and coke.</li>
+    <li>DRI certificate: gangue (SiO2), metallization and carbon - it sets the lime and energy numbers.</li>
+    <li>Recent slag analyses (CaO, SiO2, FeO, MgO) to set basicity and MgO targets.</li>
+    <li>Your furnace's power profile and transformer limits.</li>
+    <li>Tap-to-tap times and electrode consumption for a few heats.</li>
+  </ol>
+</section>
+
+<section>
+  <div class="warn"><b>Before you rely on it</b>Every constant (oxygen factor and utilization, lance flow, alloy grades and recoveries, DRI gangue, basicity, superheat, ladle drop) is a textbook default, not your plant's number. Treat outputs as a structured second opinion until you replace the defaults with your own data.</div>
+</section>
+
+<footer>Built from standard EAF practice. Advisory only: the qualified operator runs the heat, and plant procedures decide. Works fully offline once loaded.</footer>
+</div>
+
+<script>
+const K = {
+    o2PerKgC: 1.9, o2Utilization: 0.85, o2Density: 1.429,
+    cokeC: 0.88, cokeRecovery: 0.70,
+    feMnGrade: 0.78, feMnRecovery: 0.85,
+    feSiGrade: 0.75, feSiRecovery: 0.80,
+    limeCao: 0.92, basicity: 2.0,
+    tundishSuperheat: 25, ladleDrop: 55, cpLiquid: 0.23,
+    kwhScrap: 350, kwhDri: 580, driGangue: 3.5, driFeedPerMW: 1.0, o2TypicalDri: 30,
+};
+const FIELDS = {
+    heat: [
+        ['total', 'Total charge (t)', '100'], ['basket', 'Scrap basket (t)', '40'],
+    ],
+    chem: [
+        ['curC', 'Carbon now', '0.85'], ['temp', 'Temperature now (C)', '1560'],
+        ['curMn', 'Manganese now (%)', '0.15'], ['curSi', 'Silicon now (%)', '0.05'],
+        ['p', 'Phosphorus (%)', '0.025'], ['s', 'Sulfur (%)', '0.030'],
+    ],
+    o2: [
+        ['o2Used', 'O2 used so far (Nm3, optional)', ''], ['jetsInstalled', 'Lances installed', '2'],
+        ['jetsRunning', 'Jets running now', '1'], ['flowMax', 'Max flow per lance (Nm3/h)', '1500'],
+        ['window', 'Blow window left (min)', '10'], ['power', 'Arc power (MW)', '50'],
+        ['kwh', 'kWh consumed so far (optional)', ''],
+    ],
+    tgt: [
+        ['tgtC', 'Target carbon', '0.20'], ['tgtMn', 'Target manganese (%)', '0.60'], ['tgtSi', 'Target silicon (%)', '0.20'],
+    ],
+};
+const state = { chargeType: 'mix', carbonUnit: 'pct' };
+const els = {};
+function buildFields(gridId, defs) {
+    const g = document.getElementById(gridId);
+    defs.forEach(([key, label, def]) => {
+        const wrap = document.createElement('div'); wrap.className = 'field'; wrap.id = 'w_' + key;
+        const lab = document.createElement('label'); lab.htmlFor = 'f_' + key; lab.textContent = label; lab.id = 'l_' + key;
+        const inp = document.createElement('input'); inp.id = 'f_' + key; inp.type = 'text'; inp.inputMode = 'decimal'; inp.value = def; inp.autocomplete = 'off';
+        inp.addEventListener('input', render);
+        wrap.appendChild(lab); wrap.appendChild(inp); g.appendChild(wrap);
+        els[key] = inp;
+    });
+}
+buildFields('heatGrid', FIELDS.heat); buildFields('chemGrid', FIELDS.chem);
+buildFields('o2Grid', FIELDS.o2); buildFields('tgtGrid', FIELDS.tgt);
+
+function choice(id, key) {
+    document.getElementById(id).addEventListener('click', (e) => {
+        const b = e.target.closest('button'); if (!b) return;
+        state[key] = b.dataset.v;
+        [...e.currentTarget.children].forEach(x => x.classList.toggle('on', x === b));
+        document.getElementById('w_basket').style.display = (state.chargeType === 'mix') ? '' : 'none';
+        render();
+    });
+}
+choice('chargeChoice', 'chargeType'); choice('unitChoice', 'carbonUnit');
+
+const num = (s, fb) => { const v = parseFloat(s); return Number.isFinite(v) ? v : fb; };
+const r0 = x => Math.round(x).toLocaleString('en-US');
+const r1 = x => (Math.round(x * 10) / 10).toLocaleString('en-US');
+const liquidus = (c, si, mn, p, s) => 1536 - (78*c + 7.6*si + 4.9*mn + 34*p + 38*s);
+
+document.getElementById('preset').addEventListener('input', (e) => {
+    const map = { c:'curC', t:'temp', mn:'curMn', si:'curSi', p:'p', s:'s', tgtc:'tgtC', tgtmn:'tgtMn', tgtsi:'tgtSi',
+        charge:'total', basket:'basket', jets:'jetsRunning', lances:'jetsInstalled', flow:'flowMax', window:'window', mw:'power', o2:'o2Used', kwh:'kwh' };
+    e.target.value.toLowerCase().split(/[\s,;]+/).forEach(tok => {
+        const m = tok.match(/^([a-z]+)\s*=\s*(-?[0-9]*\.?[0-9]+)$/);
+        if (m && map[m[1]] && els[map[m[1]]]) els[map[m[1]]].value = m[2];
+    });
+    if (/\bdri\b/.test(e.target.value.toLowerCase()) && !/basket/.test(e.target.value.toLowerCase())) {
+        state.chargeType = 'dri';
+        [...document.getElementById('chargeChoice').children].forEach(x => x.classList.toggle('on', x.dataset.v === 'dri'));
+        document.getElementById('w_basket').style.display = 'none';
+    }
+    render();
+});
+
+function render() {
+    const unit = state.carbonUnit;
+    document.getElementById('l_curC').textContent = unit === 'points' ? 'Carbon now (points)' : 'Carbon now (%)';
+    document.getElementById('l_tgtC').textContent = unit === 'points' ? 'Target carbon (points)' : 'Target carbon (%)';
+    const toPct = v => unit === 'points' ? v / 100 : v;
+    const total = Math.max(1, num(els.total.value, 100));
+    const basket = state.chargeType === 'mix' ? Math.min(total, Math.max(0, num(els.basket.value, 40))) : 0;
+    const driT = total - basket;
+    const curC = toPct(num(els.curC.value, 0.85)), tgtC = toPct(num(els.tgtC.value, 0.20));
+    const curMn = num(els.curMn.value, 0.15), curSi = num(els.curSi.value, 0.05);
+    const temp = num(els.temp.value, 1560), p = num(els.p.value, 0.025), s = num(els.s.value, 0.030);
+    const tgtMn = num(els.tgtMn.value, 0.60), tgtSi = num(els.tgtSi.value, 0.20);
+    const MW = Math.max(1, num(els.power.value, 50));
+    const installed = Math.max(1, Math.round(num(els.jetsInstalled.value, 2)));
+    const jets = Math.max(1, Math.min(installed, Math.round(num(els.jetsRunning.value, 1))));
+    const flowMax = Math.max(100, num(els.flowMax.value, 1500));
+    const blowWindow = Math.max(1, num(els.window.value, 10));
+    const tLiq = liquidus(tgtC, tgtSi, tgtMn, p, s);
+    const tapTarget = tLiq + K.tundishSuperheat + K.ladleDrop;
+
+    document.getElementById('strip').innerHTML = `
+      <div class="chip"><span class="l">Carbon</span><span class="v">${curC.toFixed(2)}%</span><span class="s">target ${tgtC.toFixed(2)}%</span></div>
+      <div class="chip"><span class="l">Temperature</span><span class="v">${r0(temp)} C</span><span class="s">tap aim ${r0(tapTarget)} C</span></div>
+      <div class="chip"><span class="l">Charge</span><span class="v">${r0(total)} t</span><span class="s">${state.chargeType === 'dri' ? 'all DRI' : r0(driT) + ' DRI + ' + r0(basket) + ' scrap'}</span></div>`;
+
+    const A = [];
+    const cDelta = curC - tgtC;
+    if (cDelta > 0.02) {
+        const kgC = cDelta * 10 * total;
+        const nm3 = kgC * K.o2PerKgC / K.o2Utilization / K.o2Density;
+        const needFlow = nm3 / blowWindow * 60;
+        const perJet = needFlow / jets;
+        let jetAdvice, jetValue;
+        if (perJet > flowMax && jets < installed) { jetAdvice = `Bring another jet online (${jets} -> ${jets + 1})`; jetValue = `${r0(perJet)} Nm3/h needed per jet vs ${r0(flowMax)} max`; }
+        else if (perJet > flowMax) { jetAdvice = 'All lances at max - extend the window or accept a longer blow'; jetValue = `${r0(perJet)} Nm3/h needed vs ${r0(flowMax)} max`; }
+        else if (perJet < flowMax * 0.5 && jets > 1) { jetAdvice = `One jet can come off (${jets} -> ${jets - 1})`; jetValue = `only ${r0(perJet)} Nm3/h needed per jet`; }
+        else { jetAdvice = `Hold ${jets} jet${jets > 1 ? 's' : ''}`; jetValue = `set ~${r0(perJet)} Nm3/h each`; }
+        const o2Dir = perJet > flowMax ? (jets < installed ? 'raise total flow or add a jet' : 'raise total flow') : (perJet < flowMax * 0.5 ? 'lower flow or drop a jet' : 'hold');
+        A.push([`Oxygen: ${o2Dir}`, `~${r0(nm3)} Nm3 more, ~${r1(nm3 / (jets * Math.min(perJet, flowMax)) * 60)} min`,
+            `C to remove = (${curC.toFixed(2)} - ${tgtC.toFixed(2)}) x 10 x ${r0(total)} t = ${r0(kgC)} kg. O2 = kg C x ${K.o2PerKgC} / ${K.o2Utilization} / ${K.o2Density} = ${r0(nm3)} Nm3. To finish inside ${r0(blowWindow)} min needs ${r0(needFlow)} Nm3/h total.`,
+            'The carbon gap sets the oxygen, and the window you picked sets the flow. Oxygen factor, utilization and lance flow are defaults until you set your equipment numbers.']);
+        A.push([`Jets: ${jetAdvice}`, jetValue,
+            `Flow per jet = ${r0(needFlow)} Nm3/h / ${jets} running = ${r0(perJet)} Nm3/h, against the ${r0(flowMax)} Nm3/h max.`,
+            'Each lance has a max flow it should not exceed, and a floor below which the jet loses its punch and splashes. The recommendation keeps every running jet inside that band with the fewest jets.']);
+    } else if (cDelta < -0.02) {
+        const kgC = -cDelta * 10 * total;
+        const coke = kgC / (K.cokeC * K.cokeRecovery);
+        A.push(['Carbon is under target: stop blowing, recarburize', `~${r0(coke)} kg coke / anthracite`,
+            `C needed = (${tgtC.toFixed(2)} - ${curC.toFixed(2)}) x 10 x ${r0(total)} = ${r0(kgC)} kg. Coke = C / (${K.cokeC} x ${K.cokeRecovery}).`,
+            'More oxygen now would only push FeO up and eat refractory. Add carbon in stages and sample before the final trim.']);
+    } else {
+        A.push(['Carbon is on target', `${curC.toFixed(2)}% vs ${tgtC.toFixed(2)}%`, 'Within +/-0.02% of target.',
+            'No more oxygen for carbon. Any further blowing only oxidizes iron into the slag.']);
+    }
+    const o2Used = num(els.o2Used.value, NaN);
+    if (Number.isFinite(o2Used) && els.o2Used.value.trim() !== '') {
+        const perTon = o2Used / total;
+        const band = perTon > K.o2TypicalDri + 10 ? 'high' : perTon < K.o2TypicalDri - 10 ? 'low' : 'in the usual band';
+        A.push([`Oxygen used so far: ${r0(o2Used)} Nm3 (${r1(perTon)} Nm3/t)`, band,
+            `Nm3/t = meter / charge = ${r0(o2Used)} / ${r0(total)}. DRI practice usually lands in the 20-40 Nm3/t band.`,
+            'Far above the band means oxygen is going to FeO and fume instead of carbon; far below usually means decarburization is unfinished. Check against your own heat records.']);
+    }
+    const dT = tapTarget - temp;
+    if (dT > 0) {
+        const kwh = dT * K.cpLiquid * total, mins = kwh / (MW * 1000) * 60;
+        A.push([`Raise temperature by ${r0(dT)} C`, `~${r0(kwh)} kWh, ~${r1(mins)} min at ${r0(MW)} MW`,
+            `Energy = dT x W x cp = ${r0(dT)} x ${r0(total)} x ${K.cpLiquid}. Tap target ${r0(tapTarget)} C = liquidus ${r0(tLiq)} + ${K.tundishSuperheat} superheat + ${K.ladleDrop} ladle losses.`,
+            'Liquid steel holds about 0.23 kWh per tonne per degree. The gap to the tap aim sets the remaining energy and power-on time. Stay within your transformer limit.']);
+    } else {
+        A.push(['Temperature at or above tap aim', `${r0(temp)} C vs ${r0(tapTarget)} C`,
+            `Tap aim = ${r0(tLiq)} + ${K.tundishSuperheat} + ${K.ladleDrop}.`,
+            'Holding hotter than needed wastes power and lining. Plan the tap, or trim with cool clean returns per your practice.']);
+    }
+    if (driT > 0) {
+        const feed = K.driFeedPerMW * MW;
+        A.push([`DRI feed ceiling at ${r0(MW)} MW`, `~${r0(feed)} kg/min`,
+            `Feed (kg/min) ~= ${K.driFeedPerMW} kg/min per MW x power. ${r0(driT)} t of DRI at this rate = ~${r0(driT * 1000 / feed)} min of feeding.`,
+            'DRI must melt as fast as it enters or a ferrobering forms and collapses. The constant is conservative; your power profile and past heats set the real one.']);
+    }
+    const mnDelta = tgtMn - curMn;
+    if (mnDelta > 0.01) {
+        const kgMn = mnDelta * 10 * total, feMn = kgMn / (K.feMnGrade * K.feMnRecovery);
+        A.push([`Add ${r0(kgMn)} kg of manganese`, `~${r0(feMn)} kg FeMn (${r0(K.feMnGrade * 100)}%)`,
+            `Mn = (${tgtMn} - ${curMn}) x 10 x W. FeMn = Mn / (${K.feMnGrade} x ${K.feMnRecovery}).`,
+            'Trim Mn in the ladle at tapping where recovery is steadier. The recovery figure, not the grade alone, sets the real addition.']);
+    }
+    const siDelta = tgtSi - curSi;
+    if (siDelta > 0.01) {
+        const kgSi = siDelta * 10 * total, feSi = kgSi / (K.feSiGrade * K.feSiRecovery);
+        A.push([`Add ${r0(kgSi)} kg of silicon`, `~${r0(feSi)} kg FeSi (${r0(K.feSiGrade * 100)}%)`,
+            `Si = (${tgtSi} - ${curSi}) x 10 x W. FeSi = Si / (${K.feSiGrade} x ${K.feSiRecovery}).`,
+            'Silicon is a strong deoxidizer; part of every addition ends in the slag as SiO2. Deoxidize first or recovery drops further.']);
+    }
+    const sio2 = driT * K.driGangue * 10 + curSi * 10 * total * 60 / 28;
+    const lime = sio2 * K.basicity / K.limeCao;
+    A.push(['Lime for this charge', `~${r0(lime)} kg`,
+        `SiO2 = DRI gangue (${r0(driT)} t x ${K.driGangue}% = ${r0(driT * K.driGangue * 10)} kg) + oxidized Si (${r0(curSi * 10 * total * 60 / 28)} kg) = ${r0(sio2)} kg. Lime = SiO2 x B2 ${K.basicity} / ${K.limeCao}.`,
+        `DRI carries its gangue straight into the slag, so DRI heats need much more lime than scrap heats. Basicity ${K.basicity} is a generic target - use your own. Assumption: ${K.driGangue}% gangue.`]);
+    const estKwh = (driT * K.kwhDri + basket * K.kwhScrap) / total;
+    const kwhUsed = num(els.kwh.value, NaN);
+    const remaining = Number.isFinite(kwhUsed) && els.kwh.value.trim() !== '' ? Math.max(0, estKwh * total - kwhUsed) : null;
+    A.push([`Electricity plan: ~${r0(estKwh)} kWh/t for this mix`, remaining !== null ? `~${r0(remaining)} kWh to go` : `~${r0(estKwh * total)} kWh total`,
+        `Estimate = (${r0(driT)} t DRI x ${K.kwhDri} + ${r0(basket)} t scrap x ${K.kwhScrap}) / ${r0(total)} t = ${r0(estKwh)} kWh/t.`,
+        'The three real levers on kWh/t: keep the arc buried in foamy slag, never superheat past the tap aim (every 10 C costs ~2.3 kWh/t), and cut power-off minutes. Calibrate the constants with your meter history.']);
+
+    document.getElementById('recos').innerHTML = A.map(a =>
+        `<div class="reco"><div class="reco-head"><span class="reco-title">${a[0]}</span><span class="reco-value">${a[1]}</span></div><div class="reco-formula">${a[2]}</div><div class="reco-why">${a[3]}</div></div>`).join('');
+    document.getElementById('temps').innerHTML = `
+      <div class="chip"><span class="l">Liquidus</span><span class="v">${r0(tLiq)} C</span><span class="s">at target grade</span></div>
+      <div class="chip"><span class="l">Tundish aim</span><span class="v">${r0(tLiq + K.tundishSuperheat)} C</span><span class="s">superheat ${K.tundishSuperheat} C</span></div>
+      <div class="chip"><span class="l">Tap aim</span><span class="v">${r0(tapTarget)} C</span><span class="s">incl. ladle drop</span></div>`;
+    document.getElementById('life').innerHTML = [
+        ['Keep the slag foaming', 'CO from decarburization and carbon injection bubbles through a basic slag and buries the arc. A buried arc radiates to the bath, not the panels and roof, and transfers heat better. With DRI the foam depends on steady feeding and oxygen together.'],
+        ['Saturate the slag with MgO', 'Dolomitic lime raises slag MgO toward saturation (roughly 8-12%, rising with FeO and temperature) so the slag dissolves dolomite instead of the magnesia-carbon lining.'],
+        ['Arc length discipline', 'Long arc and high voltage only while scrap or DRI still shields the walls; shorter arc and lower voltage on the flat bath. Flare on a flat bath is the main enemy of panels and roof.'],
+        ['Do not over-oxidize', 'Finishing carbon far below target pushes FeO up, and high-FeO slag attacks MgO-C refractory fast. Blow to just above target and trim, rather than blowing deep and recarburizing.'],
+        ['Respect the tap temperature', `Every 10 C above the real need costs about ${r1(K.cpLiquid * 10)} kWh/t and shortens lining life for no benefit. The tap aim is a ceiling, not a floor.`],
+    ].map(([t, d]) => `<div class="reco"><div class="reco-head"><span class="reco-title">${t}</span></div><div class="reco-why">${d}</div></div>`).join('');
+}
+render();
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
+</script>
+</body>
+</html>
