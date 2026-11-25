@@ -178,6 +178,9 @@ html[data-theme=dark] .tile .v,html[data-theme=dark] .hero .big{color:#fff}
 .pm-o{display:grid;grid-template-columns:1.2fr 1fr;gap:2px 8px;padding:8px 0;border-bottom:1px solid var(--line)}.pm-o span{color:var(--muted);font-size:13px}.pm-o b{font-size:17px;text-align:right}.pm-o i{grid-column:1/3;text-align:right;font-style:normal;font-size:11px;color:var(--muted)}
 .pm-rv{max-height:260px;overflow:auto;margin-top:8px;font-size:12px}.pm-rv div{display:flex;justify-content:space-between;gap:8px;padding:4px 0;border-bottom:1px solid var(--line)}.pm-rv span{color:var(--muted)}details summary{cursor:pointer}
 .upd-toast{position:fixed;left:50%;top:14px;transform:translateX(-50%);background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:999px;padding:10px 18px;font-size:14px;font-weight:600;z-index:99;transition:opacity .4s}.upd-toast.off{opacity:0}
+.pf-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}.pf{border-collapse:collapse;font-size:12px}.pf th{font-weight:500;color:var(--muted);text-align:left;padding:2px 6px;white-space:nowrap;position:sticky;left:0;background:var(--card);max-width:150px;white-space:normal}.pf thead th{position:static;text-align:center}.pf td{padding:2px}.pf-in{width:78px;box-sizing:border-box;background:var(--paper);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:8px 6px;font:inherit;font-size:14px}
+.pf-tabs{display:flex;gap:8px;margin-bottom:10px}.pf-tabs .btn{flex:1;min-height:40px;padding:8px}
+.pm-grid>*{min-width:0}.pm-sn{width:100%;box-sizing:border-box;background:var(--paper);color:var(--ink);border:1px solid var(--line);border-radius:12px;padding:10px;font:inherit;font-size:16px;min-width:0}
 </style>
 </head>
 <body>
@@ -1159,8 +1162,87 @@ if (typeof module !== 'undefined') module.exports = MLFind;
 
   // ---- workbook loader ----
   let xl; const lib = () => xl || (xl = new Promise((res, rej) => { if (window.XLSX) return res(); const s = document.createElement('script'); s.src = 'lib/xlsx.mini.min.js'; s.onload = res; s.onerror = () => rej(new Error('Could not load the reader. Open the app once online.')); document.head.appendChild(s); }));
-  function fill() { sc.querySelectorAll('.pm-in').forEach(i => { const g = i.dataset.g, k = i.dataset.k, v = g.startsWith('ref.') ? ((M.ref || {})[g.slice(4)] || {})[k] : get(g, k); i.value = v == null ? '' : v; }); show(); }
-  const LAB = {}; REF.forEach(x => { LAB['ref.' + x[0]] = x[1]; }); YQ.forEach(x => { LAB.yq = 'Yield factor'; }); 
+  let fill = function () { sc.querySelectorAll('.pm-in').forEach(i => { const g = i.dataset.g, k = i.dataset.k, v = g.startsWith('ref.') ? ((M.ref || {})[g.slice(4)] || {})[k] : get(g, k); i.value = v == null ? '' : v; }); show(); };
+  const LAB = {}; REF.forEach(x => { LAB['ref.' + x[0]] = x[1]; }); YQ.forEach(x => { LAB.yq = 'Yield factor'; });
+  // ---- From the screen: snapshot of the furnace summary, per-tonne figures derived on this device ----
+  const SS = [['dri', 'DRI charged (t)'], ['bkt', 'Buckets charged (t)'], ['lime', 'Lime charged (kg)'], ['dolo', 'Dolomite charged (kg)'], ['coke', 'Coke charged (kg)'],
+    ['mw', 'Active power (MW)'], ['mwh', 'Active energy (MWh)'], ['pon', 'Power-on time (min:sec)'], ['ht', 'Heat time (min:sec)'], ['o2', 'Oxygen consumed (Nm3)'], ['fuel', 'Fuel consumed (Nm3)'],
+    ['carb', 'Carbon injected (kg)'], ['tap', 'Transformer tap'], ['rtap', 'Reactor tap'], ['curve', 'Current curve'], ['step', 'Process step (Contfeed or Refining)'], ['phase', 'Process phase']];
+  const mins = v => { v = String(v == null ? '' : v).trim(); if (!v) return null; const m = v.match(/^(\d+):(\d{1,2})$/); if (m) return +m[1] + (+m[2]) / 60; return n(v); };
+  function derive(S) {
+    S = S || {}; const d = { miss: [] }, g = k => n(S[k]);
+    const dri = g('dri'), bkt = g('bkt') || 0; if (dri === null) d.miss.push('DRI charged'); const tot = (dri || 0) + bkt; d.total = tot > 0 ? tot : null; if (d.total === null) d.miss.push('total charged');
+    if (d.total) { d.driPct = (dri || 0) / d.total * 100; d.o2t = g('o2') === null ? null : g('o2') / d.total; d.fuelt = g('fuel') === null ? null : g('fuel') / d.total; d.ct = g('carb') === null ? null : g('carb') / d.total;
+      d.sec = g('mwh') === null ? null : g('mwh') * 1000 / d.total; d.limeT = g('lime') === null ? null : g('lime') / d.total; d.doloT = g('dolo') === null ? null : g('dolo') / d.total; d.cokeT = g('coke') === null ? null : g('coke') / d.total; }
+    const pon = mins(S.pon), ht = mins(S.ht); d.poff = (pon !== null && ht !== null) ? ht - pon : null; d.mw = g('mw');
+    return d;
+  }
+  const sh = document.createElement('div'); sh.id = 'pmScr';
+  sh.innerHTML = '<h2>From the furnace screen</h2><div class="card"><p class="sub" style="margin:0 0 10px">Type what the summary screen shows right now. Per-tonne figures are worked out here. Nothing leaves this phone.</p><div class="pm-grid" id="pmScrIn">' +
+    SS.map(x => '<label class="pm-f"><span>' + esc(x[1]) + '</span><input class="pm-sn" data-k="' + x[0] + '" type="text" inputmode="' + (x[0] === 'pon' || x[0] === 'ht' ? 'text' : 'decimal') + '" value="' + esc((M.s || {})[x[0]] || '') + '"></label>').join('') +
+    '</div><div id="pmScrOut" style="margin-top:12px"></div><button class="btn ghost sm" id="pmScrApply">Use these in the plant model (this heat)</button><div class="sub" id="pmScrMsg" style="margin-top:6px"></div></div>';
+  sc.insertBefore(sh, sc.querySelector('#pmOut').previousElementSibling);
+  function showScr() {
+    const d = derive(M.s), out = sh.querySelector('#pmScrOut'); if (d.miss.length) { out.innerHTML = '<p class="sub" style="margin:0">Enter the DRI and bucket tons to see per-tonne figures.</p>'; return; }
+    const r = (a, v, u, dd) => '<div class="pm-o"><span>' + a + '</span><b>' + fmt(v, dd) + '</b><i>' + u + '</i></div>';
+    let html = r('Total charged', d.total, 't', 2) + r('DRI share', d.driPct, '%', 1) + r('Specific energy so far', d.sec, 'kWh/t', 1) + r('Oxygen', d.o2t, 'Nm3/t', 2) + r('Fuel', d.fuelt, 'Nm3/t', 2) + r('Carbon injected', d.ct, 'kg/t', 2) + r('Power-off time', d.poff, 'min', 1) + r('Lime / dolomite', fmt(d.limeT, 1) + ' / ' + fmt(d.doloT, 1), 'kg per tonne charged', 0).replace('<b>-</b>', '<b>' + fmt(d.limeT, 1) + ' / ' + fmt(d.doloT, 1) + '</b>');
+    const o = calc(M); if (!o.miss.length && d.sec != null) html += '<div class="pm-o"><span>Model expected energy</span><b>' + fmt(o.kwh, 1) + '</b><i>kWh/t. Difference now: ' + fmt(d.sec - o.kwh, 1) + ' kWh/t. Energy climbs through the heat, so compare near tap.</i></div>';
+    else html += '<p class="sub" style="margin:8px 0 0">Load or fill the plant model to compare with the expected energy.</p>';
+    out.innerHTML = html;
+  }
+  sh.addEventListener('input', e => { const t = e.target; if (!t.classList.contains('pm-sn')) return; M.s = M.s || {}; M.s[t.dataset.k] = t.value; save(); showScr(); });
+  sh.querySelector('#pmScrApply').onclick = () => {
+    const d = derive(M.s), msg = sh.querySelector('#pmScrMsg'); if (d.miss.length) { msg.textContent = 'Enter the DRI and bucket tons first.'; return; }
+    const set = (g, k, v, dd) => { if (v == null || !isFinite(v)) return 0; M[g] = M[g] || {}; M[g][k] = String(Math.round(v * Math.pow(10, dd)) / Math.pow(10, dd)); return 1; };
+    let c = 0; c += set('h', 'driPct', d.driPct, 2); c += set('h', 'o2', d.o2t, 2); c += set('h', 'gas', d.fuelt, 2); c += set('h', 'poff', d.poff, 1); c += set('h', 'power', d.mw, 1); c += set('k', 'curLime', d.limeT, 2); c += set('k', 'curDolo', d.doloT, 2);
+    save(); fill(); msg.textContent = c + ' fields updated under "This heat" and "Targets, flux and constants": DRI share, oxygen, fuel, power-off time, power, and lime and dolomite per tonne. Check them. DRI quality and tap temperature still come from you or your workbook.';
+  };
+  const _fill = fill; fill = function () { _fill(); sh.querySelectorAll('.pm-sn').forEach(i => { i.value = (M.s || {})[i.dataset.k] || ''; }); showScr(); };
+  showScr();
+
+  // ---- Phase profile: the furnace's per-phase recipe (typed or pasted), kept on this device ----
+  const PR = [['ptime', 'Power-on time (planned/actual)'], ['pkwh', 'Cumulative energy (kWh)'], ['prate', 'DRI rate (kg/min)'], ['pwt', 'Phase DRI weight (kg)'], ['pcum', 'Cumulative DRI weight (kg)'],
+    ['pmw', 'Active power (MW)'], ['ppct', 'Active power actual/nominal (%)'], ['tap', 'Transformer tap'], ['curve', 'Current curve'], ['rtap', 'Reactor position'], ['qgain', 'QReg gain'], ['qtype', 'QReg setup type'],
+    ['w1', 'Electrode 1 water (l/min)'], ['w2', 'Electrode 2 water (l/min)'], ['w3', 'Electrode 3 water (l/min)']];
+  const NP = 10;
+  let curProf = 'cont'; const stepProf = () => /^\s*r/i.test(String((M.s || {}).step || '')) ? 'ref' : 'cont';
+  const PFD = (pr, r) => (((M.pf || {})[pr] || {})[r] || []);
+  const pf = document.createElement('div'); pf.id = 'pmProf';
+  pf.innerHTML = '<h2>Phase profile</h2><div class="card"><div class="pf-tabs"><button class="btn sm" data-p="cont">Contfeed</button><button class="btn ghost sm" data-p="ref">Refining</button></div><p class="sub" style="margin:0 0 10px">The furnace recipe for phases 1 to 10. Type it, or paste a whole row into its first box (numbers separated by spaces, tabs or commas). It stays on this device and is never sent anywhere.</p>' +
+    '<div class="pf-wrap"><table class="pf"><thead><tr><th></th>' + Array.from({ length: NP }, (_, i) => '<th>P' + (i + 1) + '</th>').join('') + '</tr></thead><tbody>' +
+    PR.map(r => '<tr><th>' + esc(r[1]) + '</th>' + Array.from({ length: NP }, (_, i) => '<td><input class="pf-in" data-r="' + r[0] + '" data-i="' + i + '" type="text" inputmode="text" value="' + esc(PFD('cont', r[0])[i] || '') + '"></td>').join('') + '</tr>').join('') +
+    '</tbody></table></div><div id="pfOut" style="margin-top:12px"></div></div>';
+  sc.insertBefore(pf, sh);
+  const phaseNo = () => { const m = String((M.s || {}).phase || '').match(/\d+/); return m ? +m[0] : null; };
+    const pfv = (r, i) => (PFD(stepProf(), r)[i] || '').toString().trim();
+  const first = s => { const m = String(s).match(/-?\d+(?:[.,]\d+)?/); return m ? n(m[0]) : null; };
+  function showPf() {
+    const out = pf.querySelector('#pfOut'), ph = phaseNo(); if (!ph || ph < 1 || ph > NP) { out.innerHTML = '<p class="sub" style="margin:0">Enter the process step and phase under "From the furnace screen" to compare this heat with the recipe.</p>'; return; }
+    const i = ph - 1, S = M.s || {}; let h2 = '<div class="pm-o"><span>Recipe for phase ' + ph + ' (' + (stepProf() === 'ref' ? 'Refining' : 'Contfeed') + ')</span><b></b><i></i></div>';
+    const row = (a, b, c) => '<div class="pm-o"><span>' + a + '</span><b>' + esc(b) + '</b><i>' + (c || '') + '</i></div>';
+    [['tap', 'Transformer tap'], ['curve', 'Current curve'], ['rtap', 'Reactor position']].forEach(x => {
+      const want = pfv(x[0], i), have = String(S[x[0]] || '').trim(); if (!want) return;
+      const same = have && n(have) !== null && n(want) !== null && n(have) === n(want);
+      h2 += row(x[1], 'set ' + want + (have ? ', screen ' + have : ''), have ? (same ? 'matches the recipe' : 'differs from the recipe: check') : 'enter the screen value to compare');
+    });
+    const e1 = first(pfv('pkwh', i)), e0 = i > 0 ? first(pfv('pkwh', i - 1)) : 0, act = n(S.mwh) === null ? null : n(S.mwh) * 1000;
+    if (e1 !== null && act !== null) { const pos = e0 !== null && e1 > e0 ? Math.round((act - e0) / (e1 - e0) * 100) : null; h2 += row('Energy so far vs recipe', fmt(act, 0) + ' kWh', 'recipe: ' + (e0 !== null ? fmt(e0, 0) : '-') + ' kWh at the end of phase ' + (ph - 1) + ', ' + fmt(e1, 0) + ' kWh at the end of phase ' + ph + (pos !== null ? '. About ' + pos + '% of the way through this phase\'s energy.' : '')); }
+    const w1 = first(pfv('pcum', i)), w0 = i > 0 ? first(pfv('pcum', i - 1)) : 0, dri = n(S.dri) === null ? null : n(S.dri) * 1000;
+    if (w1 !== null && dri !== null) h2 += row('DRI charged vs recipe', fmt(dri, 0) + ' kg', 'recipe cumulative: ' + (w0 !== null ? fmt(w0, 0) : '-') + ' kg at the end of phase ' + (ph - 1) + ', ' + fmt(w1, 0) + ' kg at the end of phase ' + ph);
+    h2 += '<p class="sub" style="margin:8px 0 0">Progress against the recipe, not pass or fail. Advisory only. Check against your plant\'s procedures.</p>'; out.innerHTML = h2;
+  }
+  pf.addEventListener('input', e => {
+    const t = e.target; if (!t.classList.contains('pf-in')) return; const r = t.dataset.r; let i = +t.dataset.i; M.pf = M.pf || {}; M.pf[curProf] = M.pf[curProf] || {}; M.pf[curProf][r] = M.pf[curProf][r] || Array(NP).fill(''); const A = M.pf[curProf][r];
+    const parts = t.value.trim().split(/[\t,;]+|\s{2,}|\s+(?=-?\d)/).filter(x => x !== '');
+    if (parts.length > 1 && /[\s\t,;]/.test(t.value.trim())) { parts.slice(0, NP - i).forEach((v, k) => { A[i + k] = v.trim(); }); pf.querySelectorAll('.pf-in[data-r="' + r + '"]').forEach((x, k) => { x.value = A[k] || ''; }); }
+    else A[i] = t.value;
+    save(); showPf();
+  });
+  const _fill2 = fill; fill = function () { _fill2(); pf.querySelectorAll('.pf-in').forEach(x => { x.value = PFD(curProf, x.dataset.r)[+x.dataset.i] || ''; }); showPf(); };
+  pf.querySelectorAll('.pf-tabs button').forEach(b => b.onclick = () => { curProf = b.dataset.p; pf.querySelectorAll('.pf-tabs button').forEach(x => x.classList.toggle('ghost', x !== b)); fill(); });
+  sh.addEventListener('input', () => showPf());
+  showPf();
+
   sc.querySelector('#pmFile').onchange = async ev => {
     const f0 = ev.target.files[0]; if (!f0) return; const msg = sc.querySelector('#pmMsg'), rv = sc.querySelector('#pmRev'); rv.innerHTML = '';
     msg.textContent = 'Reading ' + f0.name + ' ...';
@@ -1180,7 +1262,7 @@ if (typeof module !== 'undefined') module.exports = MLFind;
       put('k', 'scrapY', rx(fm('S22'), /\(\s*100%\s*-\s*AD16%\s*\)\s*\*\s*([\d.]+)/i), 'Scrap yield (%)'); put('k', 'hot', rx(fm('D19'), /-\s*([\d.]+)\s*$/), 'Hot-heat energy credit');
       put('k', 'basic', rx(fm('B27'), /O16\*10\*([\d.]+)\)/), 'Target basicity'); put('k', 'doloMgO', rx(fm('I30'), /D29\*([\d.]+)%/), 'Dolomite MgO (%)'); put('k', 'otherMgO', rx(fm('I30'), /%\+([\d.]+)\)/), 'Other MgO'); put('k', 'slagF', rx(fm('I30'), /D30\*([\d.]+)\)/), 'Slag per flux factor');
       if (list.length < 20) throw new Error('This does not look like the correction workbook: only ' + list.length + ' known cells found (sheets: ' + wb.SheetNames.join(', ') + '). Fill the fields by hand, or tell your assistant what changed.');
-      M = nm; save(); fill(); const o = calc(M);
+      nm.s = M.s; nm.pf = M.pf; M = nm; save(); fill(); const o = calc(M);
       msg.textContent = list.length + ' values loaded from ' + f0.name + '.' + (o.miss.length ? ' Still missing: ' + o.miss.slice(0, 5).join(', ') + '.' : ' Results are shown above.') + ' Check them against your workbook.';
       rv.innerHTML = '<details open><summary>What was filled in (' + list.length + ')</summary><div class="pm-rv">' + list.map(x => '<div><span>' + esc(x[0]) + '</span><b>' + esc(x[1]) + '</b></div>').join('') + '</div></details>';
     } catch (e) { ev.target.value = ''; msg.textContent = 'Could not read this file: ' + (e && e.message ? e.message : 'unknown error'); }
@@ -1196,7 +1278,7 @@ if (typeof module !== 'undefined') module.exports = MLFind;
 
 /* ---- Self-update: check on open, focus, return, reconnect and every 5 minutes; reload at a safe moment ---- */
 (function () {
-  const VER = '3.9';
+  const VER = '3.10';
   try {
     const seen = localStorage.getItem('meltlab_ver_seen');
     if (seen && seen !== VER) {
