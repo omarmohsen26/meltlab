@@ -1329,6 +1329,54 @@ if (typeof module !== 'undefined') module.exports = MLFind;
   sc.querySelector('#pmClear').onclick = () => { if (!confirm('Erase the plant model from this device?')) return; M = {}; try { indexedDB.deleteDatabase('meltlab_docs'); } catch (e) {} sc.querySelectorAll('.pm-doc').forEach(t => t.value = ''); sc.querySelector('#imgList').innerHTML = ''; save(); try { localStorage.removeItem(SK); } catch (e) {} fill(); sc.querySelector('#pmMsg').textContent = 'Erased.'; };
   document.getElementById('wipeAll').addEventListener('click', () => { try { localStorage.removeItem(SK); indexedDB.deleteDatabase('meltlab_docs'); } catch (e) {} });
 
+
+  // ---- pour to spec (specs come only from an imported file, stored on this device) ----
+  (function () {
+    const tg = document.getElementById('tgtGrid'); if (!tg) return; const h = tg.previousElementSibling;
+    const box = document.createElement('div'); box.id = 'specBox';
+    h.parentNode.insertBefore(box, h);
+    const rng = (a, u) => !a ? '' : Array.isArray(a) ? (a[0] != null && a[1] != null ? a[0] + ' to ' + a[1] : a[1] != null ? a[1] + ' max' : a[0] + ' min') + (u || '') : String(a);
+    const mid = a => Array.isArray(a) && a[0] != null && a[1] != null ? (a[0] + a[1]) / 2 : null;
+    let sel = '';
+    const draw = () => {
+      const L = M.specs || []; const sp = L.find(x => x.id === sel);
+      let t = '<h2>Pour to spec</h2><div class="card">';
+      if (!L.length) t += '<p class="sub" style="margin:0 0 10px">No grades on this device yet. Import your spec file to pick a grade. The file is yours and is never uploaded.</p>';
+      else t += '<select id="spSel" style="width:100%"><option value="">Choose a grade</option>' + L.map(x => '<option value="' + esc(x.id) + '"' + (x.id === sel ? ' selected' : '') + '>' + esc(x.name) + '</option>').join('') + '</select>';
+      if (sp) {
+        const rows = [['Carbon %', rng(sp.c)], ['Manganese %', rng(sp.mn)], ['Silicon %', rng(sp.si)], ['P % max', rng(sp.p)], ['S % max', rng(sp.s)], ['Cu % max', rng(sp.cu)], ['CEV max', rng(sp.cev)], ['Tramp', sp.tramp || '']].filter(r => r[1]);
+        const tgt = sp.target || {}; const tv = k => tgt[k] != null ? tgt[k] : mid(sp[k]);
+        t += '<div class="pm-rv" style="margin-top:10px">' + rows.map(r => '<div><span>' + esc(r[0]) + '</span><b>' + esc(r[1]) + '</b></div>').join('') + '</div><p class="sub">' + esc(sp.std || '') + '</p>' + (sp.note ? '<p class="sub">' + esc(sp.note) + '</p>' : '');
+        t += '<button class="btn sm" id="spUse">Use as targets</button> <span class="sub" id="spMsg">' + ['c', 'mn', 'si'].map(k => tv(k) == null ? '' : '').join('') + '</span>';
+        t += '<p class="sub" style="margin-top:8px">Targets used: the grade target if it has one, otherwise the middle of the range. If the grade only has a maximum, nothing is filled for that element: set it yourself. Advisory only.</p>';
+      }
+      t += '<label class="btn ghost sm" style="display:inline-block;margin-top:10px">Import spec file<input type="file" id="spImp" accept=".json,application/json" style="display:none"></label> <span class="sub" id="spImpMsg"></span></div>';
+      box.innerHTML = t;
+      const s = box.querySelector('#spSel'); if (s) s.onchange = () => { sel = s.value; draw(); };
+      const u = box.querySelector('#spUse');
+      if (u) u.onclick = () => {
+        const sp2 = (M.specs || []).find(x => x.id === sel); if (!sp2) return; const tgt = sp2.target || {}; const filled = [], skipped = [];
+        [['c', 'f_tgtC', 'Carbon'], ['mn', 'f_tgtMn', 'Manganese'], ['si', 'f_tgtSi', 'Silicon']].forEach(([k, id, nm]) => {
+          const v = tgt[k] != null ? tgt[k] : mid(sp2[k]); const el = document.getElementById(id);
+          if (v == null || !el) { skipped.push(nm); return; }
+          const pts = k === 'c' && /point/i.test((document.getElementById('l_tgtC') || {}).textContent || '');
+          el.value = String(pts ? Math.round(v * 100) : +v.toFixed(3)); el.dispatchEvent(new Event('input', { bubbles: true })); filled.push(nm);
+        });
+        box.querySelector('#spMsg').textContent = 'Filled: ' + (filled.join(', ') || 'nothing') + (skipped.length ? '. Not filled (no target or range): ' + skipped.join(', ') + '.' : '.');
+      };
+      box.querySelector('#spImp').onchange = async ev => {
+        const f = ev.target.files[0]; if (!f) return; const m = box.querySelector('#spImpMsg');
+        try {
+          const j = JSON.parse(await f.text()); ev.target.value = '';
+          if (!j || !Array.isArray(j.specs)) throw new Error('not a MeltLab spec file');
+          M.specs = j.specs.filter(x => x && x.id && x.name).map(x => ({ id: String(x.id), name: String(x.name), std: x.std ? String(x.std) : '', c: x.c, mn: x.mn, si: x.si, p: x.p, s: x.s, cu: x.cu, cr: x.cr, ni: x.ni, n: x.n, cev: x.cev, tramp: x.tramp, target: x.target, note: x.note ? String(x.note) : '' }));
+          save(); sel = ''; draw(); box.querySelector('#spImpMsg').textContent = M.specs.length + ' grades loaded. Notes on some grades say what to check.';
+        } catch (e) { ev.target.value = ''; m.textContent = 'Could not read this file: ' + (e && e.message ? e.message : 'unknown error'); }
+      };
+    };
+    draw();
+    document.getElementById('wipeAll').addEventListener('click', () => { try { M.specs = []; } catch (e) {} });
+  })();
   // entry points: Settings and Heat screen
   const mk = () => { const b = document.createElement('button'); b.className = 'btn ghost sm'; b.textContent = 'Plant model (your workbook, on this device)'; b.onclick = () => go('plant'); return b; };
   const appH = [...document.querySelectorAll('#s_settings h2')].find(x => x.textContent.trim() === 'App'); if (appH) appH.parentNode.insertBefore(mk(), appH);
@@ -1337,7 +1385,7 @@ if (typeof module !== 'undefined') module.exports = MLFind;
 
 /* ---- Self-update: check on open, focus, return, reconnect and every 5 minutes; reload at a safe moment ---- */
 (function () {
-  const VER = '3.13';
+  const VER = '3.14';
   try {
     const seen = localStorage.getItem('meltlab_ver_seen');
     if (seen && seen !== VER) {
