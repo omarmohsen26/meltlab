@@ -176,6 +176,7 @@ html[data-theme=dark] .tile .v,html[data-theme=dark] .hero .big{color:#fff}
 .pm-in{width:100%;box-sizing:border-box;background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:12px;padding:10px;font:inherit;font-size:16px;min-width:0}
 .pm-tab .pm-h,.pm-tab .pm-r{display:grid;grid-template-columns:1.3fr 1fr 1fr 1fr;gap:6px;align-items:center;margin-bottom:6px;font-size:12px;color:var(--muted)}
 .pm-o{display:grid;grid-template-columns:1.2fr 1fr;gap:2px 8px;padding:8px 0;border-bottom:1px solid var(--line)}.pm-o span{color:var(--muted);font-size:13px}.pm-o b{font-size:17px;text-align:right}.pm-o i{grid-column:1/3;text-align:right;font-style:normal;font-size:11px;color:var(--muted)}
+.pm-rv{max-height:260px;overflow:auto;margin-top:8px;font-size:12px}.pm-rv div{display:flex;justify-content:space-between;gap:8px;padding:4px 0;border-bottom:1px solid var(--line)}.pm-rv span{color:var(--muted)}details summary{cursor:pointer}
 </style>
 </head>
 <body>
@@ -904,8 +905,9 @@ if (typeof module !== 'undefined') module.exports = MLFind;
     hdr.insertAdjacentElement('afterend', card);
     const msg = (t) => { document.getElementById('impMsg').textContent = t || ''; };
     document.getElementById('impFile').addEventListener('change', async (e) => {
-        const f = e.target.files[0]; e.target.value = '';
-        if (!f) return;
+        const f0 = e.target.files[0]; if (!f0) return;
+        let f; try { f = new File([await f0.arrayBuffer()], f0.name, { type: f0.type }); } catch (er) { msg('Could not open this file on the phone. Save it to Downloads and pick it again.'); e.target.value = ''; return; }
+        e.target.value = '';
         msg('Reading ' + f.name + ' ...');
         try { const r = await readFile(f); if (!r.found.length) { msg('No known fields found in ' + f.name + '. Check the labels (for example "Carbon", "Temperature") or enter values by hand.'); if (r.text) showRead(r.text); return; } msg(''); review(r.found, f.name, r.ocr); }
         catch (err) { msg(err && err.message ? err.message : 'Could not read this file.'); }
@@ -1123,7 +1125,7 @@ if (typeof module !== 'undefined') module.exports = MLFind;
   const field = (g, k, lab) => '<label class="pm-f"><span>' + esc(lab) + '</span>' + cellIn(g, k) + '</label>';
   let h = '<header><div><h1>Plant model</h1><div class="sub">Your own workbook logic. Stored only on this device</div></div></header>' +
     '<div class="card"><p class="sub" style="margin:0 0 10px">Load your correction workbook (xlsx). It is read on this device and never uploaded. Check every value after loading. The assistant never sees anything on this screen.</p>' +
-    '<input type="file" id="pmFile" accept=".xlsx,.xls" hidden><button class="btn" id="pmLoad">Load my workbook</button><div class="sub" id="pmMsg" style="margin-top:8px"></div></div>' +
+    '<input type="file" id="pmFile" hidden><label class="btn" id="pmLoad" for="pmFile" style="display:block;text-align:center;box-sizing:border-box">Load my workbook</label><div class="sub" id="pmMsg" style="margin-top:8px"></div><div id="pmRev"></div></div>' +
     '<h2>Results</h2><div class="card" id="pmOut"></div>' +
     '<h2>This heat</h2><div class="pm-grid">' + HS.map(x => field('h', x[0], x[1])).join('') + '</div>' +
     '<h2>Reference DRI and heat</h2><div class="pm-grid">' + RD.map(x => field('rd', x[0], x[1])).join('') + '</div>' +
@@ -1157,21 +1159,30 @@ if (typeof module !== 'undefined') module.exports = MLFind;
   // ---- workbook loader ----
   let xl; const lib = () => xl || (xl = new Promise((res, rej) => { if (window.XLSX) return res(); const s = document.createElement('script'); s.src = 'lib/xlsx.mini.min.js'; s.onload = res; s.onerror = () => rej(new Error('Could not load the reader. Open the app once online.')); document.head.appendChild(s); }));
   function fill() { sc.querySelectorAll('.pm-in').forEach(i => { const g = i.dataset.g, k = i.dataset.k, v = g.startsWith('ref.') ? ((M.ref || {})[g.slice(4)] || {})[k] : get(g, k); i.value = v == null ? '' : v; }); show(); }
-  sc.querySelector('#pmLoad').onclick = () => sc.querySelector('#pmFile').click();
+  const LAB = {}; REF.forEach(x => { LAB['ref.' + x[0]] = x[1]; }); YQ.forEach(x => { LAB.yq = 'Yield factor'; }); 
   sc.querySelector('#pmFile').onchange = async ev => {
-    const f = ev.target.files[0]; ev.target.value = ''; if (!f) return; const msg = sc.querySelector('#pmMsg'); msg.textContent = 'Reading...';
+    const f0 = ev.target.files[0]; if (!f0) return; const msg = sc.querySelector('#pmMsg'), rv = sc.querySelector('#pmRev'); rv.innerHTML = '';
+    msg.textContent = 'Reading ' + f0.name + ' ...';
     try {
-      await lib(); const wb = XLSX.read(await f.arrayBuffer(), { type: 'array', cellFormula: true }); const ws = wb.Sheets[wb.SheetNames[0]];
+      const buf = await f0.arrayBuffer(); ev.target.value = '';
+      if (!buf.byteLength) throw new Error('The file is empty or the phone would not give it to the app. Save it to Downloads and pick it again.');
+      await lib(); if (!window.XLSX) throw new Error('The spreadsheet reader did not load. Open the app once with internet, then try again.');
+      const wb = XLSX.read(new Uint8Array(buf), { type: 'array', cellFormula: true });
+      let ws = null; for (const sn of wb.SheetNames) { const s = wb.Sheets[sn]; if (s && s.C4 && s.E4 && s.C14) { ws = s; break; } } if (!ws) ws = wb.Sheets[wb.SheetNames[0]];
       const cv = a => { const c = ws[a]; return c && c.v != null && c.v !== '' ? c.v : null; }, fm = a => { const c = ws[a]; return c && c.f ? String(c.f) : ''; };
-      const nm = {}; let cnt = 0; const put = (g, k, v) => { if (v == null) return; if (g.startsWith('ref.')) { const kk = g.slice(4); nm.ref = nm.ref || {}; nm.ref[kk] = nm.ref[kk] || {}; nm.ref[kk][k] = String(v); } else { nm[g] = nm[g] || {}; nm[g][k] = String(v); } cnt++; };
-      REF.forEach(x => { put('ref.' + x[0], 'r', cv('C' + x[2])); put('ref.' + x[0], 'e', cv('E' + x[2])); put('ref.' + x[0], 'f', cv('F' + x[2])); });
-      YQ.forEach(x => put('yq', x[0], cv(x[2]))); RD.forEach(x => put('rd', x[0], cv(x[2]))); HS.forEach(x => put('h', x[0], cv(x[2]))); KS.forEach(x => { if (x[2]) put('k', x[0], cv(x[2])); });
+      const nm = {}, list = []; const put = (g, k, v, lab) => { if (v == null) return; if (g.startsWith('ref.')) { const kk = g.slice(4); nm.ref = nm.ref || {}; nm.ref[kk] = nm.ref[kk] || {}; nm.ref[kk][k] = String(v); } else { nm[g] = nm[g] || {}; nm[g][k] = String(v); } list.push([lab, v]); };
+      const cols = { r: 'reference', e: 'kWh/t', f: 'electrode' };
+      REF.forEach(x => ['r', 'e', 'f'].forEach(c => put('ref.' + x[0], c, cv({ r: 'C', e: 'E', f: 'F' }[c] + x[2]), x[1] + ' (' + cols[c] + ')')));
+      YQ.forEach(x => put('yq', x[0], cv(x[2]), 'Yield factor: ' + x[1])); RD.forEach(x => put('rd', x[0], cv(x[2]), x[1])); HS.forEach(x => put('h', x[0], cv(x[2]), 'This heat: ' + x[1]));
+      KS.forEach(x => { if (x[2]) put('k', x[0], cv(x[2]), x[1]); });
       const rx = (s, re) => { const m = s.match(re); return m ? m[1] : null; };
-      put('k', 'scrapY', rx(fm('S22'), /\(\s*100%\s*-\s*AD16%\s*\)\s*\*\s*([\d.]+)/i)); put('k', 'hot', rx(fm('D19'), /-\s*([\d.]+)\s*$/));
-      put('k', 'basic', rx(fm('B27'), /O16\*10\*([\d.]+)\)/)); put('k', 'doloMgO', rx(fm('I30'), /D29\*([\d.]+)%/)); put('k', 'otherMgO', rx(fm('I30'), /%\+([\d.]+)\)/)); put('k', 'slagF', rx(fm('I30'), /D30\*([\d.]+)\)/));
+      put('k', 'scrapY', rx(fm('S22'), /\(\s*100%\s*-\s*AD16%\s*\)\s*\*\s*([\d.]+)/i), 'Scrap yield (%)'); put('k', 'hot', rx(fm('D19'), /-\s*([\d.]+)\s*$/), 'Hot-heat energy credit');
+      put('k', 'basic', rx(fm('B27'), /O16\*10\*([\d.]+)\)/), 'Target basicity'); put('k', 'doloMgO', rx(fm('I30'), /D29\*([\d.]+)%/), 'Dolomite MgO (%)'); put('k', 'otherMgO', rx(fm('I30'), /%\+([\d.]+)\)/), 'Other MgO'); put('k', 'slagF', rx(fm('I30'), /D30\*([\d.]+)\)/), 'Slag per flux factor');
+      if (list.length < 20) throw new Error('This does not look like the correction workbook: only ' + list.length + ' known cells found (sheets: ' + wb.SheetNames.join(', ') + '). Fill the fields by hand, or tell your assistant what changed.');
       M = nm; save(); fill(); const o = calc(M);
-      msg.textContent = cnt + ' values loaded. ' + (o.miss.length ? 'Still missing: ' + o.miss.slice(0, 5).join(', ') + '. ' : '') + 'Check them against your workbook before relying on the results.';
-    } catch (e) { msg.textContent = 'Could not read this file: ' + e.message; }
+      msg.textContent = list.length + ' values loaded from ' + f0.name + '.' + (o.miss.length ? ' Still missing: ' + o.miss.slice(0, 5).join(', ') + '.' : ' Results are shown above.') + ' Check them against your workbook.';
+      rv.innerHTML = '<details open><summary>What was filled in (' + list.length + ')</summary><div class="pm-rv">' + list.map(x => '<div><span>' + esc(x[0]) + '</span><b>' + esc(x[1]) + '</b></div>').join('') + '</div></details>';
+    } catch (e) { ev.target.value = ''; msg.textContent = 'Could not read this file: ' + (e && e.message ? e.message : 'unknown error'); }
   };
   sc.querySelector('#pmClear').onclick = () => { if (!confirm('Erase the plant model from this device?')) return; M = {}; save(); try { localStorage.removeItem(SK); } catch (e) {} fill(); sc.querySelector('#pmMsg').textContent = 'Erased.'; };
   document.getElementById('wipeAll').addEventListener('click', () => { try { localStorage.removeItem(SK); } catch (e) {} });
