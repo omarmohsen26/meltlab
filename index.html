@@ -686,14 +686,19 @@ if ('serviceWorker' in navigator) {
     navigator.serviceWorker.getRegistrations().then(rs => rs.forEach(r => {
         if (r.scope.indexOf(location.origin + '/meltlab') === 0 && r.scope !== base) r.unregister();
     })).catch(() => {});
-    let hadCtl = !!navigator.serviceWorker.controller;
+    let hadCtl = !!navigator.serviceWorker.controller, pending = false, reloading = false;
+    const busy = () => { const a = document.activeElement; return a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName); };
+    const doReload = () => { if (reloading) return; reloading = true; try { saveState(); } catch (e) {} location.reload(); };
+    const trySafe = () => { if (!pending) return; if (document.hidden || !busy()) doReload(); else setTimeout(trySafe, 4000); };
     navigator.serviceWorker.addEventListener('controllerchange', () => {
-        if (hadCtl && !document.getElementById('upd')) {
-            const b = document.createElement('button'); b.id = 'upd'; b.className = 'banner'; b.textContent = 'New version available. Tap to reload.';
-            b.addEventListener('click', () => location.reload()); document.getElementById('bannerHost').appendChild(b);
-        }
+        if (hadCtl) { pending = true; setTimeout(trySafe, 1500); }
         hadCtl = true;
     });
+    document.addEventListener('visibilitychange', () => {
+        if (document.hidden) trySafe();
+        else navigator.serviceWorker.getRegistration().then(r => r && r.update()).catch(() => {});
+    });
+    setInterval(() => navigator.serviceWorker.getRegistration().then(r => r && r.update()).catch(() => {}), 30 * 60 * 1000);
     navigator.serviceWorker.register('sw.js', { scope: './', updateViaCache: 'none' }).then(r => r.update()).catch(() => {});
 }
 
