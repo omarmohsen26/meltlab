@@ -168,6 +168,9 @@ html[data-theme=dark] .tile .v,html[data-theme=dark] .hero .big{color:#fff}
 .imp-ck{width:48px;height:48px;display:grid;place-items:center;flex:none}.imp-ck input{width:22px;height:22px;accent-color:var(--acc)}
 .imp-c{flex:1;min-width:0}.imp-l{font-size:14px;font-weight:600}.imp-src{font-size:12px;color:var(--muted);overflow-wrap:anywhere;margin-top:2px}
 .imp-v{width:96px;flex:none;font:inherit;font-weight:700;font-size:16px;background:var(--paper);color:var(--ink);border:1px solid var(--line);border-radius:12px;padding:10px;text-align:right;min-height:48px}
+.ai-in{width:100%;box-sizing:border-box;background:var(--paper);color:var(--ink);border:1px solid var(--line);border-radius:12px;padding:12px;font:inherit;font-size:16px;margin:0 0 8px}
+.ai-box{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:12px}.ai-ck{display:flex;gap:8px;align-items:center;font-size:13px;color:var(--muted)}.ai-ck input:disabled+span{opacity:.4}
+.ai-pre{white-space:pre-wrap;font:inherit;font-size:13px;margin:8px 0}.ai-ans{font-size:14px;line-height:1.5;margin-top:8px}#aiPv .btn{margin-top:8px}
 </style>
 </head>
 <body>
@@ -231,7 +234,7 @@ html[data-theme=dark] .tile .v,html[data-theme=dark] .hero .big{color:#fff}
   <h2>App</h2>
   <button class="btn ghost sm" id="showIntro">Show the intro again</button>
   <button class="btn ghost sm" id="wipeAll">Erase all data on this device</button>
-  <p class="sub" style="margin:14px 4px">MeltLab runs entirely in your browser. Nothing you enter is sent anywhere.</p>
+  <p class="sub" style="margin:14px 4px">MeltLab runs entirely in your browser. Nothing you enter is sent anywhere, except a question you choose to send to the optional AI assistant.</p>
 </div>
 
 <div class="screen" id="s_why">
@@ -974,6 +977,91 @@ if (typeof module !== 'undefined') module.exports = MLFind;
             render(); m.remove(); msg(n + ' value' + (n === 1 ? '' : 's') + ' applied from the file. Check the Heat fields, then tap Get advice.');
         };
     }
+})();
+
+/* ---- Ask the assistant: optional, free cloud model, sent only on a tap ---- */
+(function () {
+  const KEY = 'meltlab_ai_key', BL = 'meltlab_ai_block', OK = 'meltlab_ai_ok';
+  const MODELS = ['openai/gpt-oss-120b', 'openai/gpt-oss-20b'];
+  const URL_ = 'https://api.groq.com/openai/v1/chat/completions';
+  const g = k => { try { return localStorage.getItem(k) || ''; } catch (e) { return ''; } };
+  const s = (k, v) => { try { v ? localStorage.setItem(k, v) : localStorage.removeItem(k); } catch (e) {} };
+  const esc = t => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const lab = {}; Object.keys(FIELDS).forEach(k => { if (k !== 'consts') FIELDS[k].forEach(r => { lab[r[0]] = r[1]; }); });
+
+  // Settings block
+  const st = document.getElementById('s_settings'), anchor = document.getElementById('wipeAll');
+  const sb = document.createElement('div');
+  sb.innerHTML = '<h2>AI assistant (optional)</h2>' +
+    '<p class="sub" style="margin:0 4px 10px">Uses Groq, a third party, on its free plan. You use your own key. It stays on this device and is never part of the app.</p>' +
+    '<input class="ai-in" id="aiKey" type="password" autocomplete="off" placeholder="Groq API key (starts with gsk_)">' +
+    '<textarea class="ai-in" id="aiBl" rows="2" placeholder="Words that must never be sent, separated by commas (names, sites, codes)"></textarea>' +
+    '<button class="btn ghost sm" id="aiSave">Save assistant settings</button>' +
+    '<button class="btn ghost sm" id="aiClear">Remove key from this device</button><div class="sub" id="aiSt" style="margin:6px 4px"></div>';
+  const appH=[...st.querySelectorAll('h2')].find(h=>h.textContent.trim()==='App'); st.insertBefore(sb, appH||anchor);
+  const kEl = sb.querySelector('#aiKey'), bEl = sb.querySelector('#aiBl'), stEl = sb.querySelector('#aiSt');
+  kEl.value = g(KEY); bEl.value = g(BL);
+  sb.querySelector('#aiSave').onclick = () => { s(KEY, kEl.value.trim()); s(BL, bEl.value.trim()); stEl.textContent = 'Saved on this device.'; };
+  sb.querySelector('#aiClear').onclick = () => { s(KEY, ''); kEl.value = ''; stEl.textContent = 'Key removed.'; };
+  const wipe = document.getElementById('wipeAll'); wipe.addEventListener('click', () => { [KEY, BL, OK].forEach(k => s(k, '')); });
+
+  // Ask card on the Reasoning screen
+  const why = document.getElementById('s_why');
+  const c = document.createElement('div'); c.id = 'askCard';
+  c.innerHTML = '<h2>Ask the assistant</h2><div class="card ask">' +
+    '<p class="sub" style="margin:0 0 8px">Explains and compares. It does not decide. Nothing leaves your phone until you tap Send.</p>' +
+    '<textarea class="ai-in" id="aiQ" rows="3" placeholder="Ask a question about this heat, for example: why is the oxygen figure higher than my usual?"></textarea>' +
+    '<div class="sub" style="margin:6px 0">Include these numbers (tick what to share):</div><div id="aiBox" class="ai-box"></div>' +
+    '<button class="btn" id="aiPrev">Preview what will be sent</button>' +
+    '<div id="aiPv"></div><div id="aiOut"></div></div>';
+  const note = why.querySelector('.note'); why.insertBefore(c, note);
+  const box = c.querySelector('#aiBox');
+  ['charged', 'total', 'power', 'curC', 'temp', 'curMn', 'curSi', 'p', 's', 'jetsRunning'].forEach(k => {
+    if (!els[k]) return; const v = els[k].value;
+    const l = document.createElement('label'); l.className = 'ai-ck';
+    l.innerHTML = '<input type="checkbox" data-k="' + k + '"><span>' + esc(lab[k] || k) + '</span>'; box.appendChild(l);
+  });
+  function refreshBox() { box.querySelectorAll('input').forEach(i => { const v = els[i.dataset.k] && els[i.dataset.k].value; i.disabled = !v; if (!v) i.checked = false; }); }
+  document.querySelector('.tab[data-go=why]').addEventListener('click', refreshBox); refreshBox();
+
+  function clean(t) {
+    t = String(t);
+    t = t.replace(/[\w.+-]+@[\w-]+\.[\w.-]+/g, '[removed]').replace(/https?:\/\/\S+/gi, '[removed]').replace(/\+?\d[\d\s().-]{7,}\d/g, '[removed]');
+    g(BL).split(/[,\n]/).map(x => x.trim()).filter(x => x.length > 1).forEach(w => { t = t.replace(new RegExp(w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'), '[removed]'); });
+    return t;
+  }
+  const SYS = 'You are a steelmaking study assistant. You only explain and compare. You do not give orders, setpoints or go/no-go decisions. Be brief and plain. Start with one line: "Advisory only. Check against your plant\'s procedures." Use plain text only: short sentences and simple dash bullets. No LaTeX, no tables, no markdown symbols. Write chemistry in words (for example C + O2 gives CO). If numbers are missing, say what you would need.';
+  let payload = null;
+  c.querySelector('#aiPrev').onclick = () => {
+    const q = clean(c.querySelector('#aiQ').value.trim()), pv = c.querySelector('#aiPv'), out = c.querySelector('#aiOut'); out.innerHTML = '';
+    if (!q) { pv.innerHTML = '<p class="sub">Type a question first.</p>'; return; }
+    if (!g(KEY)) { pv.innerHTML = '<p class="sub">Add your Groq key in Settings first.</p>'; return; }
+    const nums = [...box.querySelectorAll('input:checked')].map(i => '- ' + (lab[i.dataset.k] || i.dataset.k) + ': ' + els[i.dataset.k].value);
+    const user = q + (nums.length ? '\n\nNumbers from my heat:\n' + nums.join('\n') : '');
+    payload = user;
+    const first = !g(OK);
+    pv.innerHTML = '<div class="note"><b>This exact text goes to Groq (a third party)</b><pre class="ai-pre">' + esc(user) + '</pre>' +
+      (first ? '<p class="sub">First use: your text leaves this device and is processed by Groq. Their policy says requests are not kept by default, but may be logged up to 30 days for abuse checks. Do not include names or anything confidential.</p>' : '') +
+      '<button class="btn" id="aiSend">' + (first ? 'I understand, send' : 'Send') + '</button></div>';
+    pv.querySelector('#aiSend').onclick = send;
+  };
+  async function send() {
+    const out = c.querySelector('#aiOut'), btn = c.querySelector('#aiSend'); btn.disabled = true; s(OK, '1');
+    out.innerHTML = '<p class="sub">Waiting for the answer...</p>';
+    let lastErr = '';
+    for (const m of MODELS) {
+      try {
+        const r = await fetch(URL_, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + g(KEY) },
+          body: JSON.stringify({ model: m, temperature: 0.3, max_tokens: 700, reasoning_effort: 'low', messages: [{ role: 'system', content: SYS }, { role: 'user', content: payload }] }) });
+        const j = await r.json();
+        if (!r.ok) { lastErr = (j.error && j.error.message) || ('Error ' + r.status); if (r.status === 401) break; continue; }
+        const txt = (j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content) || '';
+        out.innerHTML = '<div class="note"><b>Advisory, check against your plant\'s procedures</b><div class="ai-ans">' + esc(txt.replace(/\*\*|__|`|\\\[|\\\]|\\\(|\\\)|\\text\{([^}]*)\}/g, (m, a) => a || '')).replace(/\n/g, '<br>') + '</div></div>';
+        c.querySelector('#aiPv').innerHTML = ''; return;
+      } catch (e) { lastErr = 'No connection or the request was blocked.'; }
+    }
+    out.innerHTML = '<p class="sub">Could not get an answer: ' + esc(lastErr) + '</p>'; btn.disabled = false;
+  }
 })();
 </script>
 <script>
