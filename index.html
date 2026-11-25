@@ -258,6 +258,12 @@ html.ag-lock body>*:not(#authgate){visibility:hidden}
 .card.ag-acct .ag-who{display:block;word-break:normal;overflow-wrap:anywhere;font-size:16px}
 .card.ag-acct .ag-k{display:block}
 .card.ag-acct .ag-out{width:100%!important;flex:none;min-height:52px}
+.ag-h2{font-size:18px;font-weight:700;margin:2px 0 4px}
+.ag-up{width:100%;min-height:56px}
+.ag-list{margin-top:10px}
+.ag-file{border-top:1px solid var(--line,rgba(255,255,255,.12));padding:12px 0;display:flex;flex-direction:column;gap:8px}
+.ag-fn{display:flex;flex-direction:column;gap:2px;min-width:0}.ag-fn b{overflow-wrap:anywhere}.ag-fn span{font-size:12px;opacity:.65}
+.ag-fa{display:flex;gap:8px}.ag-fa .btn{flex:1;min-height:48px}
 </style>
 </head>
 <body>
@@ -1706,7 +1712,7 @@ if (typeof module !== 'undefined') module.exports = MLFind;
 
 /* ---- Self-update: check on open, focus, return, reconnect and every 5 minutes; reload at a safe moment ---- */
 (function () {
-  const VER = '3.21.3';
+  const VER = '3.22';
   try {
     const seen = localStorage.getItem('meltlab_ver_seen');
     if (seen && seen !== VER) {
