@@ -207,6 +207,31 @@ html[data-theme=dark] .tile .v,html[data-theme=dark] .hero .big{color:#fff}
 .ux-def{border-bottom:1px dotted currentColor;cursor:help}.ux-tip{position:fixed;left:12px;right:12px;bottom:190px;z-index:50;background:#2b3138;color:#fff;padding:12px 14px;border-radius:12px;border:1px solid #444;font-size:14px}
 #s_why .reco:not(.open) .reco-formula,#s_why .reco:not(.open) .reco-why{display:none}#s_why .reco{cursor:pointer}
 .ai-ck{display:flex!important;width:100%;min-height:48px;align-items:center;gap:12px}.ai-ck input{width:24px;height:24px}
+
+/* ---- v3.20 polished look: soft glass cards, amber accent, pill nav ---- */
+html[data-theme=dark]{--acc:#FFB454;--emb-t:#FFC877;--accfg:#2B1B00;--btn:#FFB454;--btntx:#2B1B00;--paper:#14181E;--line:rgba(255,255,255,.12);--card:rgba(255,255,255,.06);--hero:rgba(255,255,255,.07)}
+html[data-theme=light]{--paper:#FBF6EC;--card:#FFFFFF;--line:#EBE3D3;--acc:#F5A524;--emb-t:#8A4F00;--accfg:#2B1B00;--btn:#F5A524;--btntx:#2B1B00;--hero:#FFFFFF}
+html[data-theme=dark] body{background:radial-gradient(120% 60% at 50% -10%,#3a3550 0%,#232a3b 38%,#14181E 75%) fixed}
+html[data-theme=light] body{background:linear-gradient(180deg,#FFF3DC 0%,#FBF6EC 40%) fixed}
+.card,.reco,.tile,.field,.limits,details,.note,.hero{border-radius:22px}
+html[data-theme=dark] .card,html[data-theme=dark] .tile,html[data-theme=dark] .field,html[data-theme=dark] .limits,html[data-theme=dark] details,html[data-theme=dark] .hero,html[data-theme=dark] .reco{background:rgba(255,255,255,.06);backdrop-filter:blur(16px) saturate(1.2);-webkit-backdrop-filter:blur(16px) saturate(1.2);border:1px solid rgba(255,255,255,.14);box-shadow:0 8px 24px rgba(0,0,0,.18)}
+html[data-theme=light] .card,html[data-theme=light] .tile,html[data-theme=light] .field,html[data-theme=light] details,html[data-theme=light] .hero,html[data-theme=light] .reco{box-shadow:0 6px 20px rgba(120,90,30,.08)}
+.hero .big{font-size:64px}
+.btn{border-radius:18px;min-height:56px}
+.btn:not(.ghost){background:linear-gradient(180deg,color-mix(in srgb,var(--btn) 92%,#fff),var(--btn))}
+.seg button{min-height:48px}
+.track{height:8px;border-radius:99px}.track i{border-radius:99px}
+.bar{height:8px;border-radius:99px;overflow:hidden}
+.pill{border-radius:99px;padding:2px 10px}
+nav{display:flex;gap:4px;justify-content:center;width:max-content;max-width:calc(100% - 24px);left:50%;right:auto;transform:translateX(-50%);padding:6px;border-radius:99px;background:#111418;border:1px solid rgba(255,255,255,.1);box-shadow:0 10px 30px rgba(0,0,0,.35)}
+html[data-theme=light] nav{background:#16191D}
+nav .tab{flex:none;min-width:52px;max-width:none;padding:0 14px;flex-direction:row;gap:8px;border-radius:99px;color:#C9CFD6;font-size:14px!important;min-height:52px}
+nav .tab:not(.on){font-size:0!important;gap:0}
+nav .tab:not(.on) svg{width:24px;height:24px}
+nav .tab.on{background:var(--acc);color:var(--accfg)!important;font-size:14px!important;font-weight:700}
+.badge{border-radius:99px}
+.th{background:rgba(255,255,255,.08)}
+.ux-fold{border-radius:22px}
 </style>
 </head>
 <body>
@@ -1646,7 +1671,7 @@ if (typeof module !== 'undefined') module.exports = MLFind;
 
 /* ---- Self-update: check on open, focus, return, reconnect and every 5 minutes; reload at a safe moment ---- */
 (function () {
-  const VER = '3.19';
+  const VER = '3.20';
   try {
     const seen = localStorage.getItem('meltlab_ver_seen');
     if (seen && seen !== VER) {
