@@ -264,6 +264,16 @@ html.ag-lock body>*:not(#authgate){visibility:hidden}
 .ag-file{border-top:1px solid var(--line,rgba(255,255,255,.12));padding:12px 0;display:flex;flex-direction:column;gap:8px}
 .ag-fn{display:flex;flex-direction:column;gap:2px;min-width:0}.ag-fn b{overflow-wrap:anywhere}.ag-fn span{font-size:12px;opacity:.65}
 .ag-fa{display:flex;gap:8px}.ag-fa .btn{flex:1;min-height:48px}
+.ux-steps{display:flex;gap:8px;margin:2px 0 12px}
+.ux-steps button{flex:1;display:flex;align-items:center;justify-content:center;gap:8px;min-height:48px;border-radius:99px;border:1px solid var(--line,rgba(255,255,255,.14));background:rgba(255,255,255,.05);color:inherit;font-weight:600;font-size:14px;font-family:inherit}
+.ux-steps i{font-style:normal;width:24px;height:24px;border-radius:50%;display:grid;place-items:center;font-size:13px;background:rgba(255,255,255,.12)}
+.ux-steps button.done i{background:#5fcf80;color:#10200f}
+.ux-steps button.now{border-color:var(--acc);box-shadow:0 0 0 1px var(--acc) inset}.ux-steps button.now i{background:var(--acc);color:var(--accfg,#1B1F24)}
+.ux-skip{margin:-4px 4px 10px!important}
+#s_heat .btn[data-go="advice"]{position:sticky;bottom:96px;z-index:5;box-shadow:0 10px 30px rgba(0,0,0,.45)}
+
+.ux-ex{margin:6px 4px 14px}.ux-ex-t{font-size:13px;color:var(--muted,#6B7078);margin-bottom:8px}.ux-ex-r{display:flex;gap:8px;flex-wrap:wrap}.ux-ex-r .btn{min-height:48px;flex:1}
+.screen{padding-bottom:190px}
 </style>
 </head>
 <body>
@@ -994,14 +1004,17 @@ if (typeof module !== 'undefined') module.exports = MLFind;
         + '<div class="imp-msg" id="impMsg" role="status"></div>';
     hdr.insertAdjacentElement('afterend', card);
     const msg = (t) => { document.getElementById('impMsg').textContent = t || ''; };
-    document.getElementById('impFile').addEventListener('change', async (e) => {
-        const f0 = e.target.files[0]; if (!f0) return;
-        let f; try { f = new File([await f0.arrayBuffer()], f0.name, { type: f0.type }); } catch (er) { msg('Could not open this file on the phone. Save it to Downloads and pick it again.'); e.target.value = ''; return; }
-        e.target.value = '';
+    async function handleFile(f0, inp) {
+        if (!f0) return;
+        let f; try { f = new File([await f0.arrayBuffer()], f0.name || 'photo.jpg', { type: f0.type }); } catch (er) { msg('Could not open this file on the phone. Save it to Downloads and pick it again.'); if (inp) inp.value = ''; return; }
+        if (inp) inp.value = '';
+        if (window.go && !document.getElementById('s_heat').classList.contains('on')) { try { go('heat'); } catch (e) {} }
         msg('Reading ' + f.name + ' ...');
-        try { const r = await readFile(f); if (!r.found.length) { msg('No known fields found in ' + f.name + '. Check the labels (for example "Carbon", "Temperature") or enter values by hand.'); if (r.text) showRead(r.text); return; } msg(''); review(r.found, f.name, r.ocr); }
+        try { const r = await readFile(f); if (r.report) { msg(''); MLReport.review(r.report, f.name, r.ocr); return; } if (!r.found.length) { msg('No known fields found in ' + f.name + '. Check the labels (for example "Carbon", "Temperature") or enter values by hand.'); if (r.text) showRead(r.text); return; } msg(''); review(r.found, f.name, r.ocr); }
         catch (err) { msg(err && err.message ? err.message : 'Could not read this file.'); }
-    });
+    }
+    document.getElementById('impFile').addEventListener('change', (e) => handleFile(e.target.files[0], e.target));
+    window.MLImportFile = handleFile;
     async function prep(f) {
         try {
             const bmp = await createImageBitmap(f); const sc = Math.min(3, Math.max(1, 1800 / Math.max(bmp.width, bmp.height)));
@@ -1010,8 +1023,9 @@ if (typeof module !== 'undefined') module.exports = MLFind;
             const d = x.getImageData(0, 0, c.width, c.height), p = d.data, hist = new Array(256).fill(0);
             for (let i = 0; i < p.length; i += 4) { const g = Math.round(0.299 * p[i] + 0.587 * p[i + 1] + 0.114 * p[i + 2]); p[i] = g; hist[g]++; }
             const n = p.length / 4; let a = 0, lo = 0, hi = 255; for (let g = 0; g < 256; g++) { a += hist[g]; if (a > n * 0.02) { lo = g; break; } } a = 0; for (let g = 255; g >= 0; g--) { a += hist[g]; if (a > n * 0.02) { hi = g; break; } }
+            let mean = 0; for (let g = 0; g < 256; g++) mean += g * hist[g]; mean /= n; const inv = mean < 110;
             const span = Math.max(40, hi - lo);
-            for (let i = 0; i < p.length; i += 4) { const v = Math.max(0, Math.min(255, (p[i] - lo) * 255 / span)); p[i] = p[i + 1] = p[i + 2] = v; p[i + 3] = 255; }
+            for (let i = 0; i < p.length; i += 4) { let v = Math.max(0, Math.min(255, (p[i] - lo) * 255 / span)); if (inv) v = 255 - v; p[i] = p[i + 1] = p[i + 2] = v; p[i + 3] = 255; }
             x.putImageData(d, 0, 0); return c;
         } catch (e) { return f; }
     }
@@ -1049,6 +1063,8 @@ if (typeof module !== 'undefined') module.exports = MLFind;
             MLFind.fromLines(text.split(/\r?\n/), found, seen);
             found.forEach(o => { o.note = (o.note ? o.note + '; ' : '') + 'read by OCR, check the digits'; if (o.how !== 'check') o.how = 'ocr'; });
         } else throw new Error('This file type is not supported. Use .xlsx, .csv, .docx, .txt, a PDF or a photo.');
+        const report = window.MLReport ? MLReport.parse(text) : null;
+        if (report) return { report, found, ocr, text };
         return { found, ocr, text: text.split('\n').slice(0, 40).join('\n') };
     }
     function showRead(text) { const d = document.getElementById('impMsg'); d.insertAdjacentHTML('beforeend', '<details class="imp-read"><summary>What was read (first lines)</summary><pre>' + esc(text) + '</pre></details>'); }
@@ -1075,6 +1091,7 @@ if (typeof module !== 'undefined') module.exports = MLFind;
         };
     }
 })();
+
 
 /* ---- Ask the assistant: optional, free cloud model, sent only on a tap ---- */
 (function () {
@@ -1709,10 +1726,47 @@ if (typeof module !== 'undefined') module.exports = MLFind;
   c.querySelector('.ag-out').addEventListener('click', () => { if (window.MLAuth) window.MLAuth.signOut(); });
   if (window.MLAuth) window.MLAuth.paint();
 })();
+/* ---- v3.23: flow. Steps strip, reachable Get advice, no dead end without grades ---- */
+(function () {
+  const heat = document.getElementById('s_heat'); if (!heat) return;
+  const hdr = heat.querySelector('header'), spec = document.getElementById('specBox'), go = heat.querySelector('.btn[data-go="advice"]'), chem = document.getElementById('chemGrid');
+  if (!hdr || !go) return;
+  const bar = document.createElement('div'); bar.className = 'ux-steps'; bar.id = 'uxSteps';
+  bar.innerHTML = '<button type="button" data-t="spec"><i>1</i><span>Grade</span></button><button type="button" data-t="chem"><i>2</i><span>Heat</span></button><button type="button" data-t="go"><i>3</i><span>Advice</span></button>';
+  hdr.insertAdjacentElement('afterend', bar);
+  const target = k => k === 'spec' ? spec : k === 'chem' ? (document.getElementById('heatGrid') || chem) : go;
+  bar.addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; const t = target(b.dataset.t); if (t) t.scrollIntoView({ behavior: 'smooth', block: 'center' }); });
+  const note = document.createElement('p'); note.className = 'sub ux-skip'; note.id = 'uxSkip'; note.textContent = 'No grade unlocked? You can skip this step and type the targets below by hand.'; if (spec) spec.insertAdjacentElement('afterend', note);
+  function state() {
+    const sp = document.getElementById('specBox') || spec; const locked = !!(sp && /locked/i.test(sp.textContent) && sp.querySelector('input'));
+    const vals = chem ? [...chem.querySelectorAll('input')] : [];
+    const filled = vals.length && vals.every(i => String(i.value).trim() !== '');
+    const [s1, s2, s3] = bar.querySelectorAll('button');
+    s1.classList.toggle('done', !locked); { const t1 = locked ? '1' : '\u2713', i1 = s1.querySelector('i'); if (i1.textContent !== t1) i1.textContent = t1; }
+    s2.classList.toggle('done', !!filled); { const t2 = filled ? '\u2713' : '2', i2 = s2.querySelector('i'); if (i2.textContent !== t2) i2.textContent = t2; }
+    s3.classList.toggle('now', !!filled && (!locked || true));
+    note.hidden = !locked;
+    heat.classList.toggle('ux-locked', locked);
+  }
+  heat.addEventListener('input', state); heat.addEventListener('change', state);
+  if (spec) new MutationObserver(state).observe(spec.parentNode, { childList: true, subtree: true }); setTimeout(state, 2500);
+  state(); setTimeout(state, 800);
+})();
+
+// v3.23b: example targets (synthetic) and bottom padding
+(function(){
+  const heat = document.getElementById('s_heat'), note = document.getElementById('uxSkip'); if (!heat || !note) return;
+  const ex = [['Low carbon', 0.06, 0.35, 0.10], ['Medium carbon', 0.20, 0.60, 0.20], ['Higher carbon', 0.45, 0.80, 0.25]];
+  const box = document.createElement('div'); box.className = 'ux-ex';
+  box.innerHTML = '<div class="ux-ex-t">Or start from an example (synthetic numbers, not a plant grade)</div><div class="ux-ex-r">' + ex.map((e, i) => '<button type="button" class="btn ghost sm" data-i="' + i + '">' + e[0] + '</button>').join('') + '</div>';
+  note.insertAdjacentElement('afterend', box);
+  box.addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; const x = ex[+b.dataset.i]; [['f_tgtC', x[1]], ['f_tgtMn', x[2]], ['f_tgtSi', x[3]]].forEach(([id, v]) => { const el = document.getElementById(id); if (el) { el.value = v; el.dispatchEvent(new Event('input', { bubbles: true })); } }); });
+  const sync = () => { box.hidden = note.hidden; }; new MutationObserver(sync).observe(note, { attributes: true, attributeFilter: ['hidden'] }); sync();
+})();
 
 /* ---- Self-update: check on open, focus, return, reconnect and every 5 minutes; reload at a safe moment ---- */
 (function () {
-  const VER = '3.22';
+  const VER = '3.23';
   try {
     const seen = localStorage.getItem('meltlab_ver_seen');
     if (seen && seen !== VER) {
