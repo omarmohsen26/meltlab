@@ -252,6 +252,7 @@ html.ag-lock body>*:not(#authgate){visibility:hidden}
 .ag-row{display:flex;align-items:center;justify-content:space-between;gap:12px}.ag-k{font-size:12px;opacity:.65}.ag-who{font-weight:600;word-break:break-all}
 .ag-out{min-height:48px;padding:0 18px}
 .ag-row>div{min-width:0;flex:1}.ag-out{flex:none}
+.ag-code{font-size:12px;opacity:.75;margin-top:4px;word-break:break-all;font-family:monospace;color:#ffb4a8}
 </style>
 </head>
 <body>
@@ -1700,7 +1701,7 @@ if (typeof module !== 'undefined') module.exports = MLFind;
 
 /* ---- Self-update: check on open, focus, return, reconnect and every 5 minutes; reload at a safe moment ---- */
 (function () {
-  const VER = '3.21';
+  const VER = '3.21.1';
   try {
     const seen = localStorage.getItem('meltlab_ver_seen');
     if (seen && seen !== VER) {
