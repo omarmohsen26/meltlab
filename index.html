@@ -1701,7 +1701,7 @@ if (typeof module !== 'undefined') module.exports = MLFind;
 
 /* ---- Self-update: check on open, focus, return, reconnect and every 5 minutes; reload at a safe moment ---- */
 (function () {
-  const VER = '3.21.1';
+  const VER = '3.21.2';
   try {
     const seen = localStorage.getItem('meltlab_ver_seen');
     if (seen && seen !== VER) {
