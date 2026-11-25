@@ -1084,7 +1084,8 @@ if (typeof module !== 'undefined') module.exports = MLFind;
     ['o2', 'Oxygen (Nm3/t)', 9], ['fuel', 'Fuel (Nm3/t)', 10], ['power', 'Average power (MW)', 11], ['cdri', 'DRI share (%)', 12], ['cin', 'Carbon in DRI (%)', 13], ['met', 'DRI metallization (%)', 14]];
   const YQ = [['fe', 'Total iron', 'Q4'], ['gang', 'Gangue', 'Q6'], ['c', 'Carbon', 'Q7'], ['fines', 'Fines', 'Q8'], ['feo', 'FeO in slag', 'Q9']];
   const RD = [['rFe', 'Reference DRI: total iron (%)', 'R15'], ['rGang', 'Reference DRI: gangue (%)', 'N15'], ['rC', 'Reference DRI: carbon (%)', 'I15'], ['rFines', 'Reference DRI: fines (%)', 'T15'], ['rFeo', 'Reference FeO in slag (%)', 'AE15']];
-  const KS = [['kwhOpt', 'Optimum energy (kWh/t)', 'B18'], ['hot', 'Hot-heat energy credit (kWh/t)', null], ['elecOpt', 'Optimum electrode (kg/t)', 'C21'], ['y2Opt', 'Optimum yield, method 2 (%)', 'B24'],
+  const DOCS = [['dri', 'DRI analysis'], ['lime', 'Lime analysis'], ['dol', 'Dolomite analysis'], ['sum', 'Yesterday\'s summary report'], ['slag', 'Furnace slag analysis']];
+  const KS = [['basAim', 'Basicity aim, furnace 2 (enter once)', null], ['kwhOpt', 'Optimum energy (kWh/t)', 'B18'], ['hot', 'Hot-heat energy credit (kWh/t)', null], ['elecOpt', 'Optimum electrode (kg/t)', 'C21'], ['y2Opt', 'Optimum yield, method 2 (%)', 'B24'],
     ['scrapY', 'Scrap yield (%)', null], ['reqTons', 'Requested tons (t)', 'I25'], ['limeFrac', 'Lime fraction of flux', 'B28'], ['limeCaO', 'Lime CaO (%)', 'C28'], ['doloCaO', 'Dolomite CaO (%)', 'C29'],
     ['curLime', 'Current lime (kg)', 'D28'], ['curDolo', 'Current dolomite (kg)', 'D29'], ['basic', 'Target basicity (CaO/SiO2)', null], ['doloMgO', 'Dolomite MgO (%)', null], ['otherMgO', 'Other MgO (kg)', null], ['slagF', 'Slag per flux factor', null]];
   const HS = [['dC', 'DRI carbon (%)', 'I16'], ['dGang', 'DRI gangue (%)', 'N16'], ['dSio2', 'DRI SiO2 (%)', 'O16'], ['dCao', 'DRI CaO (%)', 'P16'], ['dFe', 'DRI total iron (%)', 'R16'], ['dMet', 'DRI metallization (%)', 'S16'],
@@ -1137,6 +1138,9 @@ if (typeof module !== 'undefined') module.exports = MLFind;
     REF.map(x => '<div class="pm-r"><span>' + esc(x[1]) + '</span>' + ['r', 'e', 'f'].map(c => cellIn('ref.' + x[0], c)).join('') + '</div>').join('') + '</div>' +
     '<h2>Yield factors (per 1% change)</h2><div class="pm-grid">' + YQ.map(x => field('yq', x[0], x[1])).join('') + '</div>' +
     '<h2>Targets, flux and constants</h2><div class="pm-grid">' + KS.map(x => field('k', x[0], x[1])).join('') + '</div>' +
+    '<h2>Plant documents</h2><div class="card"><p class="sub" style="margin:0 0 10px">Analyses, reports and screenshots for reference. Stored only on this device. Never sent anywhere, never shown to the assistant.</p>' +
+    DOCS.map(d => '<label class="sub" style="display:block;margin:10px 0 4px">' + esc(d[1]) + '</label><textarea class="pm-doc" data-d="' + d[0] + '" rows="3" style="width:100%" placeholder="Type or paste"></textarea>').join('') +
+    '<label class="sub" style="display:block;margin:14px 0 4px">Heat screenshots and photos</label><input type="file" id="imgIn" accept="image/*" multiple><div id="imgList" class="pm-imgs"></div></div>' +
     '<button class="btn ghost sm" id="pmClear">Erase plant model from this device</button><div style="height:90px"></div>';
   sc.innerHTML = h; const stg = document.getElementById('s_settings'); stg.parentNode.insertBefore(sc, stg.nextSibling);
 
@@ -1278,8 +1282,26 @@ if (typeof module !== 'undefined') module.exports = MLFind;
       rv.innerHTML = '<details open><summary>What was filled in (' + list.length + ')</summary><div class="pm-rv">' + list.map(x => '<div><span>' + esc(x[0]) + '</span><b>' + esc(x[1]) + '</b></div>').join('') + '</div></details>';
     } catch (e) { ev.target.value = ''; msg.textContent = 'Could not read this file: ' + (e && e.message ? e.message : 'unknown error'); }
   };
-  sc.querySelector('#pmClear').onclick = () => { if (!confirm('Erase the plant model from this device?')) return; M = {}; save(); try { localStorage.removeItem(SK); } catch (e) {} fill(); sc.querySelector('#pmMsg').textContent = 'Erased.'; };
-  document.getElementById('wipeAll').addEventListener('click', () => { try { localStorage.removeItem(SK); } catch (e) {} });
+
+  // plant documents (on-device): notes in M.docs, images in IndexedDB
+  sc.querySelectorAll('.pm-doc').forEach(t => { t.value = (M.docs || {})[t.dataset.d] || ''; t.oninput = () => { (M.docs = M.docs || {})[t.dataset.d] = t.value; save(); }; });
+  const IDB = () => new Promise((ok, no) => { const r = indexedDB.open('meltlab_docs', 1); r.onupgradeneeded = () => r.result.createObjectStore('img', { keyPath: 'id', autoIncrement: true }); r.onsuccess = () => ok(r.result); r.onerror = () => no(r.error); });
+  const idbDo = async (mode, fn) => { const db = await IDB(); return new Promise((ok, no) => { const tx = db.transaction('img', mode); const rq = fn(tx.objectStore('img')); tx.oncomplete = () => ok(rq && rq.result); tx.onerror = () => no(tx.error); }); };
+  const drawImgs = async () => {
+    const box = sc.querySelector('#imgList'); let all = [];
+    try { all = await idbDo('readonly', s => s.getAll()) || []; } catch (e) {}
+    box.innerHTML = all.map(x => '<div style="display:inline-block;margin:6px 6px 0 0;position:relative"><img data-u="' + x.id + '" style="height:90px;border-radius:6px"><button class="btn ghost sm" data-x="' + x.id + '" style="display:block;margin-top:2px">Remove</button></div>').join('');
+    box.querySelectorAll('img').forEach(im => { const x = all.find(a => a.id == im.dataset.u); if (x) im.src = URL.createObjectURL(new Blob([x.buf], { type: x.type })); });
+    box.querySelectorAll('[data-x]').forEach(b => b.onclick = async () => { await idbDo('readwrite', s => s.delete(+b.dataset.x)); drawImgs(); });
+  };
+  sc.querySelector('#imgIn').onchange = async ev => {
+    const fs = Array.from(ev.target.files || []);
+    for (const f of fs) { const buf = await f.arrayBuffer(); await idbDo('readwrite', s => s.add({ name: f.name, type: f.type, buf })); }
+    ev.target.value = ''; drawImgs();
+  };
+  drawImgs();
+  sc.querySelector('#pmClear').onclick = () => { if (!confirm('Erase the plant model from this device?')) return; M = {}; try { indexedDB.deleteDatabase('meltlab_docs'); } catch (e) {} sc.querySelectorAll('.pm-doc').forEach(t => t.value = ''); sc.querySelector('#imgList').innerHTML = ''; save(); try { localStorage.removeItem(SK); } catch (e) {} fill(); sc.querySelector('#pmMsg').textContent = 'Erased.'; };
+  document.getElementById('wipeAll').addEventListener('click', () => { try { localStorage.removeItem(SK); indexedDB.deleteDatabase('meltlab_docs'); } catch (e) {} });
 
   // entry points: Settings and Heat screen
   const mk = () => { const b = document.createElement('button'); b.className = 'btn ghost sm'; b.textContent = 'Plant model (your workbook, on this device)'; b.onclick = () => go('plant'); return b; };
@@ -1289,7 +1311,7 @@ if (typeof module !== 'undefined') module.exports = MLFind;
 
 /* ---- Self-update: check on open, focus, return, reconnect and every 5 minutes; reload at a safe moment ---- */
 (function () {
-  const VER = '3.11';
+  const VER = '3.12';
   try {
     const seen = localStorage.getItem('meltlab_ver_seen');
     if (seen && seen !== VER) {
