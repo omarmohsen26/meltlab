@@ -1220,7 +1220,7 @@ if (typeof module !== 'undefined') module.exports = MLFind;
   pf.innerHTML = '<h2>Phase profile</h2><div class="card"><div class="pf-tabs" id="pfPrac"><button class="btn sm" data-p="dri">100% DRI</button><button class="btn ghost sm" data-p="bkt">1 bucket + DRI</button></div><div class="pf-tabs" id="pfStep"><button class="btn ghost sm" data-p="melt">Melting 1</button><button class="btn sm" data-p="cont">Contfeed</button><button class="btn ghost sm" data-p="ref">Refining</button></div><p class="sub" style="margin:0 0 10px">The furnace recipe for phases 1 to 10. Type it, or paste a whole row into its first box (numbers separated by spaces, tabs or commas). It stays on this device and is never sent anywhere.</p>' +
     '<div class="pf-wrap"><table class="pf"><thead><tr><th></th>' + Array.from({ length: NP }, (_, i) => '<th>P' + (i + 1) + '</th>').join('') + '</tr></thead><tbody>' +
     PR.map(r => '<tr><th>' + esc(r[1]) + '</th>' + Array.from({ length: NP }, (_, i) => '<td><input class="pf-in" data-r="' + r[0] + '" data-i="' + i + '" type="text" inputmode="text" value="' + esc(PFD('dri', 'cont', r[0])[i] || '') + '"></td>').join('') + '</tr>').join('') +
-    '</tbody></table></div><div id="pfOut" style="margin-top:12px"></div></div>';
+    '</tbody></table></div><div id="pfOut" style="margin-top:12px"></div></div><h2>Profile overview</h2><div class="card" id="pfOvw"></div><div class="card"><label class="btn ghost sm" style="display:inline-block">Import profile file<input type="file" id="pfImp" accept=".json,application/json" style="display:none"></label> <span class="sub" id="pfImpMsg"></span></div>';
   sc.insertBefore(pf, sh);
   const phaseNo = () => { const m = String((M.s || {}).phase || '').match(/\d+/); return m ? +m[0] : null; };
   const pfv = (r, i) => (PFD(pracProf(), stepProf(), r)[i] || '').toString().trim();
@@ -1257,6 +1257,32 @@ if (typeof module !== 'undefined') module.exports = MLFind;
   pf.querySelectorAll('.pf-tabs button').forEach(b => b.onclick = () => { if (b.parentNode.id === 'pfPrac') curPrac = b.dataset.p; else curStep = b.dataset.p; b.parentNode.querySelectorAll('button').forEach(x => x.classList.toggle('ghost', x !== b)); fill(); });
   sh.addEventListener('input', () => showPf());
   showPf();
+
+  // overview: per step and phase, tap, curve and total O2 set
+  const ovw = () => {
+    const box = pf.querySelector('#pfOvw'); const cells = a => a.map(v => '<td>' + esc(v === '' ? '-' : v) + '</td>').join('');
+    const sum = (st, ks) => Array.from({ length: NP }, (_, i) => { let s = 0, any = false; ks.forEach(k => { const v = n(PFD(curPrac, st, k)[i]); if (v != null) { s += v; any = true; } }); return any ? String(s) : ''; });
+    const cur = (M.s && M.s.phase) ? phaseNo() : null;
+    box.innerHTML = '<p class="sub" style="margin:0 0 8px">' + (curPrac === 'dri' ? '100% DRI' : '1 bucket + DRI') + ' recipe. From the Phase profile above. Your own values, on this device.</p>' + [['melt', 'Melting 1'], ['cont', 'Contfeed'], ['ref', 'Refining']].map(s => {
+      const g = k => Array.from({ length: NP }, (_, i) => String(PFD(curPrac, s[0], k)[i] || '').trim());
+      const rows = [['Tap', g('tap')], ['Curve', g('curve')], ['Reactor', g('rtap')], ['O2 set, all injectors (Nm3/h)', sum(s[0], ['i1o', 'i2o', 'i3o', 'i4o'])]];
+      return '<div style="margin:12px 0 4px"><b>' + s[1] + '</b></div><div class="pf-wrap"><table class="pf"><thead><tr><th></th>' + Array.from({ length: NP }, (_, i) => '<th>P' + (i + 1) + '</th>').join('') + '</tr></thead><tbody>' + rows.map(r => '<tr><th>' + r[0] + '</th>' + cells(r[1]) + '</tr>').join('') + '</tbody></table></div>';
+    }).join('');
+  };
+  const _sp = showPf; showPf = function () { _sp(); ovw(); }; showPf();
+  pf.querySelector('#pfImp').onchange = async ev => {
+    const f = ev.target.files[0]; if (!f) return; const m = pf.querySelector('#pfImpMsg');
+    try {
+      const txt = await f.text(); ev.target.value = ''; const j = JSON.parse(txt);
+      if (!j || !j.pf || typeof j.pf !== 'object') throw new Error('not a MeltLab profile file');
+      M.pf = M.pf || {}; let c = 0;
+      Object.keys(j.pf).forEach(k => { if (!/^(dri|bkt)\.(melt|cont|ref)$/.test(k)) return; M.pf[k] = M.pf[k] || {}; Object.keys(j.pf[k]).forEach(r => { if (!PR.some(x => x[0] === r) || !Array.isArray(j.pf[k][r])) return; M.pf[k][r] = j.pf[k][r].slice(0, NP).map(v => String(v)); c += M.pf[k][r].length; }); });
+      save(); fill();
+      const chk = Array.isArray(j.check) ? j.check : [];
+      m.textContent = c + ' values loaded. They were read from photos: compare them with the screen.';
+      pf.querySelector('#pfOut').insertAdjacentHTML('beforebegin', chk.length ? '<details open><summary>Please check (' + chk.length + ')</summary><ul style="margin:6px 0 10px 18px">' + chk.map(x => '<li class="sub">' + esc(x) + '</li>').join('') + '</ul></details>' : '');
+    } catch (e) { ev.target.value = ''; m.textContent = 'Could not read this file: ' + (e && e.message ? e.message : 'unknown error'); }
+  };
 
   sc.querySelector('#pmFile').onchange = async ev => {
     const f0 = ev.target.files[0]; if (!f0) return; const msg = sc.querySelector('#pmMsg'), rv = sc.querySelector('#pmRev'); rv.innerHTML = '';
@@ -1311,7 +1337,7 @@ if (typeof module !== 'undefined') module.exports = MLFind;
 
 /* ---- Self-update: check on open, focus, return, reconnect and every 5 minutes; reload at a safe moment ---- */
 (function () {
-  const VER = '3.12';
+  const VER = '3.13';
   try {
     const seen = localStorage.getItem('meltlab_ver_seen');
     if (seen && seen !== VER) {
