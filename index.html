@@ -876,7 +876,7 @@ if (typeof module !== 'undefined') module.exports = MLFind;
 
 /* ---- Import from a file: all parsing happens on this device ---- */
 (function () {
-    const LIBS = { xlsx: 'lib/xlsx.mini.min.js', docx: 'lib/mammoth.browser.min.js', pdf: 'lib/pdf.min.js' };
+    const LIBS = { ocr: 'lib/ocr/tesseract.min.js', xlsx: 'lib/xlsx.mini.min.js', docx: 'lib/mammoth.browser.min.js', pdf: 'lib/pdf.min.js' };
     const loaded = {};
     function loadLib(k) {
         if (loaded[k]) return loaded[k];
@@ -889,8 +889,8 @@ if (typeof module !== 'undefined') module.exports = MLFind;
     // card on the Heat screen
     const hdr = document.querySelector('#s_heat header');
     const card = document.createElement('div'); card.className = 'card'; card.id = 'impCard';
-    card.innerHTML = '<div class="imp-t">Import from a file</div><div class="imp-s">Excel, CSV, Word, text or text-based PDF. You review every value before it is used.</div>'
-        + '<label class="btn ghost imp-btn" for="impFile">Choose file</label><input id="impFile" type="file" accept=".xlsx,.xls,.csv,.tsv,.txt,.docx,.pdf" hidden>'
+    card.innerHTML = '<div class="imp-t">Import from a file</div><div class="imp-s">Excel, CSV, Word, text, PDF or a photo of a screen or report. You review every value before it is used.</div>'
+        + '<label class="btn ghost imp-btn" for="impFile">Choose file</label><input id="impFile" type="file" accept=".xlsx,.xls,.csv,.tsv,.txt,.docx,.pdf,image/*" hidden>'
         + '<div class="imp-priv"><svg viewBox="0 0 24 24"><rect x="4" y="11" width="16" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>Stays on this device. The file is read here, never uploaded or stored.</div>'
         + '<div class="imp-msg" id="impMsg" role="status"></div>';
     hdr.insertAdjacentElement('afterend', card);
@@ -899,11 +899,24 @@ if (typeof module !== 'undefined') module.exports = MLFind;
         const f = e.target.files[0]; e.target.value = '';
         if (!f) return;
         msg('Reading ' + f.name + ' ...');
-        try { const r = await readFile(f); if (!r.found.length) { msg('No known fields found in ' + f.name + '. Check the labels (for example "Carbon", "Temperature") or enter values by hand.'); if (r.text) showRead(r.text); return; } msg(''); review(r.found, f.name); }
+        try { const r = await readFile(f); if (!r.found.length) { msg('No known fields found in ' + f.name + '. Check the labels (for example "Carbon", "Temperature") or enter values by hand.'); if (r.text) showRead(r.text); return; } msg(''); review(r.found, f.name, r.ocr); }
         catch (err) { msg(err && err.message ? err.message : 'Could not read this file.'); }
     });
+    async function prep(f) {
+        try {
+            const bmp = await createImageBitmap(f); const sc = Math.min(3, Math.max(1, 1800 / Math.max(bmp.width, bmp.height)));
+            const c = document.createElement('canvas'); c.width = Math.round(bmp.width * sc); c.height = Math.round(bmp.height * sc);
+            const x = c.getContext('2d'); x.imageSmoothingQuality = 'high'; x.drawImage(bmp, 0, 0, c.width, c.height);
+            const d = x.getImageData(0, 0, c.width, c.height), p = d.data, hist = new Array(256).fill(0);
+            for (let i = 0; i < p.length; i += 4) { const g = Math.round(0.299 * p[i] + 0.587 * p[i + 1] + 0.114 * p[i + 2]); p[i] = g; hist[g]++; }
+            const n = p.length / 4; let a = 0, lo = 0, hi = 255; for (let g = 0; g < 256; g++) { a += hist[g]; if (a > n * 0.02) { lo = g; break; } } a = 0; for (let g = 255; g >= 0; g--) { a += hist[g]; if (a > n * 0.02) { hi = g; break; } }
+            const span = Math.max(40, hi - lo);
+            for (let i = 0; i < p.length; i += 4) { const v = Math.max(0, Math.min(255, (p[i] - lo) * 255 / span)); p[i] = p[i + 1] = p[i + 2] = v; p[i + 3] = 255; }
+            x.putImageData(d, 0, 0); return c;
+        } catch (e) { return f; }
+    }
     async function readFile(f) {
-        const name = f.name.toLowerCase(); const found = [], seen = {}; let text = '';
+        const name = f.name.toLowerCase(); const found = [], seen = {}; let text = '', ocr = false;
         if (/\.(xlsx|xls)$/.test(name)) {
             await loadLib('xlsx');
             const wb = XLSX.read(await f.arrayBuffer(), { type: 'array' });
@@ -928,15 +941,22 @@ if (typeof module !== 'undefined') module.exports = MLFind;
             text = lines.join('\n');
             if (!text.replace(/\s/g, '')) throw new Error('This PDF has no text layer (probably a scan). Scans and photos need OCR, which is the next release. Use Excel, Word or a text PDF for now.');
             MLFind.fromLines(lines, found, seen);
-        } else throw new Error('This file type is not supported. Use .xlsx, .csv, .docx, .txt or a text PDF.');
-        return { found, text: text.split('\n').slice(0, 40).join('\n') };
+        } else if (/\.(png|jpe?g|webp|bmp|gif)$/.test(name) || (f.type || '').indexOf('image/') === 0) {
+            await loadLib('ocr');
+            const w = await Tesseract.createWorker('eng', 1, { workerPath: 'lib/ocr/worker.min.js', corePath: 'lib/ocr/', langPath: 'lib/ocr/', gzip: true, workerBlobURL: false, logger: (m) => { if (m.status === 'recognizing text') msg('Reading the photo on this device: ' + Math.round(m.progress * 100) + '%'); else if (m.status) msg('Preparing the reader (first time only, a few MB) ...'); } });
+            const r = await w.recognize(await prep(f)); await w.terminate();
+            text = r.data.text; ocr = true;
+            MLFind.fromLines(text.split(/\r?\n/), found, seen);
+            found.forEach(o => { o.note = (o.note ? o.note + '; ' : '') + 'read by OCR, check the digits'; if (o.how !== 'check') o.how = 'ocr'; });
+        } else throw new Error('This file type is not supported. Use .xlsx, .csv, .docx, .txt, a PDF or a photo.');
+        return { found, ocr, text: text.split('\n').slice(0, 40).join('\n') };
     }
     function showRead(text) { const d = document.getElementById('impMsg'); d.insertAdjacentHTML('beforeend', '<details class="imp-read"><summary>What was read (first lines)</summary><pre>' + esc(text) + '</pre></details>'); }
-    function review(found, fname) {
+    function review(found, fname, ocr) {
         const m = document.createElement('div'); m.className = 'modal'; m.id = 'impModal';
         let rows = found.map((o, i) => '<div class="imp-row" data-i="' + i + '"><label class="imp-ck"><input type="checkbox" checked aria-label="Use ' + esc(label[o.key]) + '"></label><div class="imp-c"><div class="imp-l">' + esc(label[o.key] || o.key)
-            + (o.how === 'check' ? ' <span class="pill over">CHECK</span>' : '') + '</div><div class="imp-src">' + esc(o.src) + (o.note ? ' (' + esc(o.note) + ')' : '') + '</div></div><input class="imp-v" inputmode="decimal" value="' + o.value + '" aria-label="Value"></div>').join('');
-        m.innerHTML = '<div><h3>Review before using</h3><p class="sub" style="margin:4px 0 12px">' + found.length + ' value' + (found.length > 1 ? 's' : '') + ' found in ' + esc(fname) + '. Nothing is applied until you confirm. Fix any wrong number.</p><div class="imp-list">' + rows + '</div><div class="row"><button class="btn ghost" id="impCancel">Cancel</button><button class="btn" id="impApply">Apply values</button></div></div>';
+            + (o.how === 'check' ? ' <span class="pill over">CHECK</span>' : (o.how === 'ocr' ? ' <span class="pill">OCR</span>' : '')) + '</div><div class="imp-src">' + esc(o.src) + (o.note ? ' (' + esc(o.note) + ')' : '') + '</div></div><input class="imp-v" inputmode="decimal" value="' + o.value + '" aria-label="Value"></div>').join('');
+        m.innerHTML = '<div><h3>Review before using</h3><p class="sub" style="margin:4px 0 12px">' + found.length + ' value' + (found.length > 1 ? 's' : '') + ' found in ' + esc(fname) + '. Nothing is applied until you confirm. Fix any wrong number.' + (ocr ? ' <b>Photo text is read by OCR and can misread digits and decimal points. Check every value against the photo.</b>' : '') + '</p><div class="imp-list">' + rows + '</div><div class="row"><button class="btn ghost" id="impCancel">Cancel</button><button class="btn" id="impApply">Apply values</button></div></div>';
         document.body.appendChild(m);
         m.querySelector('#impCancel').onclick = () => m.remove();
         m.addEventListener('click', (e) => { if (e.target === m) m.remove(); });
