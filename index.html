@@ -190,6 +190,7 @@ html[data-theme=dark] .tile .v,html[data-theme=dark] .hero .big{color:#fff}
 .btn[data-go=advice]{position:sticky;bottom:96px;z-index:5;box-shadow:0 6px 24px rgba(0,0,0,.45)}
 .btn,.seg button,.pf-tabs .btn{min-height:48px}
 #chargeChoice{margin-bottom:12px}
+.ux-msg{margin:10px 2px;padding:10px 12px;border-radius:12px;border:1px solid #e0a43a;color:#f0c46a;font-size:14px}.ux-bad{outline:2px solid #e0a43a}
 </style>
 </head>
 <body>
@@ -709,7 +710,7 @@ function drawH() {
         + '<div class="reco-formula" style="margin-top:8px">C ' + esc(x.c) + '% | ' + esc(x.t) + ' C | charge ' + esc(x.ch) + ' t | O2 to go ' + esc(x.o) + ' Nm3 | ' + esc(x.j) + ' jets | ' + esc(x.e) + ' kWh/t</div>'
         + (x.txt ? '<details class="hist-d"><summary>Full plan</summary><pre>' + esc(x.txt) + '</pre></details>' : '')
         + '<div class="row">' + (x.inp ? '<button class="btn ghost sm" data-load="' + i + '">Load inputs</button>' : '') + (x.txt ? '<button class="btn ghost sm" data-copy="' + i + '">Copy</button>' : '') + '<button class="btn ghost sm" data-del="' + i + '">Delete</button></div></div>').join('')
-        : '<p class="sub" style="margin:18px 4px">No heats logged yet. Tap Log this heat on the Advice screen. Entries stay on this device only.</p>';
+        : '<p class="sub" style="margin:18px 4px">No heats yet. Get advice for a heat, then tap Log this heat on the Advice screen to keep it here. Entries stay on this device only.</p><button class="btn" data-go="heat">Start a heat</button>';
     el.querySelectorAll('[data-del]').forEach(b => b.addEventListener('click', () => { if (!confirm('Delete this heat?')) return; const a = loadH(); a.splice(+b.dataset.del, 1); saveH(a); drawH(); }));
     el.querySelectorAll('[data-copy]').forEach(b => b.addEventListener('click', () => shareText(loadH()[+b.dataset.copy].txt, b)));
     el.querySelectorAll('[data-load]').forEach(b => b.addEventListener('click', () => { const x = loadH()[+b.dataset.load]; Object.keys(els).forEach(k => { if (x.inp[k] !== undefined) els[k].value = x.inp[k]; }); render(); go('heat'); }));
@@ -1349,7 +1350,7 @@ if (typeof module !== 'undefined') module.exports = MLFind;
     h.parentNode.insertBefore(box, h);
     const rng = (a, u) => !a ? '' : Array.isArray(a) ? (a[0] != null && a[1] != null ? a[0] + ' to ' + a[1] : a[1] != null ? a[1] + ' max' : a[0] + ' min') + (u || '') : String(a);
     const mid = a => Array.isArray(a) && a[0] != null && a[1] != null ? (a[0] + a[1]) / 2 : null;
-    let sel = '';
+    let sel = ''; try { sel = localStorage.getItem('meltlab_grade') || ''; } catch (e) {}
     const draw = () => {
       const L = M.specs || []; const sp = L.find(x => x.id === sel);
       let t = '<h2>Pour to spec</h2><div class="card">';
@@ -1364,7 +1365,7 @@ if (typeof module !== 'undefined') module.exports = MLFind;
       }
       t += '<label class="btn ghost sm" style="display:inline-block;margin-top:10px">Import spec file<input type="file" id="spImp" style="display:none"></label> <span class="sub" id="spImpMsg"></span><details hidden style="margin-top:10px"><summary class="sub">Or paste text to import</summary><textarea id="spPaste" rows="4" style="width:100%;margin-top:6px" placeholder="Paste all parts here, in order"></textarea><button class="btn sm" id="spPasteGo">Import pasted text</button></details></div>';
       box.innerHTML = t;
-      const s = box.querySelector('#spSel'); if (s) s.onchange = () => { sel = s.value; draw(); };
+      const s = box.querySelector('#spSel'); if (s) s.onchange = () => { sel = s.value; try { localStorage.setItem('meltlab_grade', sel); } catch (e) {} draw(); };
       const u = box.querySelector('#spUse');
       if (u) u.onclick = () => {
         const sp2 = (M.specs || []).find(x => x.id === sel); if (!sp2) return; const tgt = sp2.target || {}; const filled = [], skipped = [];
@@ -1440,9 +1441,9 @@ if (typeof module !== 'undefined') module.exports = MLFind;
     let ok = false; try { const r = await fetch('./specs.enc.json', { cache: 'no-store' }); if (!r.ok) return; var env = await r.json(); ok = !!(env && env.ct && env.salt && env.iv); } catch (e) { return; }
     if (!ok) return; const box = document.getElementById('specBox'); if (!box) return;
     const b64 = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
-    const wrap = document.createElement('div'); wrap.className = 'card'; wrap.style.marginTop = '10px';
-    wrap.innerHTML = '<p class="sub" style="margin:0 0 8px">Built-in grades are locked. Enter your passcode once. It is not stored. The grades are saved on this device only.</p><input type="password" id="spPass" autocomplete="off" style="width:100%"><button class="btn sm" id="spUnlock" style="margin-top:8px">Unlock grades</button> <span class="sub" id="spUnMsg"></span>';
-    box.appendChild(wrap);
+    const wrap = document.createElement('div'); wrap.style.margin = '0 0 12px';
+    wrap.innerHTML = '<p class="sub" style="margin:0 0 8px">Enter your passcode once to unlock the built-in grades. It is not stored. The grades are saved on this device only.</p><input type="password" id="spPass" autocomplete="off" style="width:100%"><button class="btn sm" id="spUnlock" style="margin-top:8px;width:100%">Unlock grades</button> <span class="sub" id="spUnMsg"></span>';
+    const cd = box.querySelector('.card'), p0 = cd && cd.querySelector('p.sub'); if (!cd) return; if (p0) p0.textContent = 'Grades are locked on this device. Unlock them, or import your own spec file.'; if (p0) p0.after(wrap); else cd.prepend(wrap);
     wrap.querySelector('#spUnlock').onclick = async () => {
       const m = wrap.querySelector('#spUnMsg'); m.textContent = 'Unlocking...';
       try {
@@ -1499,9 +1500,38 @@ if (typeof module !== 'undefined') module.exports = MLFind;
   }
 })();
 
+/* ---- v3.17: input checks, shown where the user is ---- */
+(function () {
+  const g = id => { const e = document.getElementById('f_' + id); return e ? parseFloat(String(e.value).replace(',', '.')) : NaN; };
+  const checks = () => {
+    const m = [], bad = [];
+    const need = (id, name) => { const v = g(id); if (!(v > 0)) { m.push(name + ' is needed.'); bad.push(id); } return v; };
+    const tot = need('total', 'Total charge'), pw = need('power', 'Power available'); const ch = g('charged'), tp = g('temp'), pl = g('pwrLimit');
+    if (isNaN(ch) || ch < 0) { m.push('Charged so far must be 0 or more.'); bad.push('charged'); }
+    else if (tot > 0 && ch > tot) { m.push('Charged so far is more than the total charge.'); bad.push('charged'); }
+    if (!(tp > 1000 && tp < 1800)) { m.push('Temperature should be between 1000 and 1800 C.'); bad.push('temp'); }
+    if (pl > 0 && pw > pl) { m.push('Power available is above the transformer limit.'); bad.push('power'); }
+    const c = g('curC'); if (isNaN(c) || c < 0) { m.push('Carbon now is needed.'); bad.push('curC'); }
+    return { m, bad };
+  };
+  const all = ['total', 'charged', 'power', 'pwrLimit', 'temp', 'curC'];
+  const mkBox = () => { const d = document.createElement('div'); d.className = 'ux-msg'; d.setAttribute('role', 'status'); d.hidden = true; return d; };
+  const hb = mkBox(), ab = mkBox();
+  const gb = document.querySelector('#s_heat .btn[data-go="advice"]'); if (gb) gb.insertAdjacentElement('beforebegin', hb);
+  const ah = document.querySelector('#s_advice header'); if (ah) ah.insertAdjacentElement('afterend', ab);
+  const run = () => {
+    const r = checks();
+    all.forEach(id => { const e = document.getElementById('f_' + id); if (e) e.classList.toggle('ux-bad', r.bad.includes(id)); });
+    hb.hidden = ab.hidden = !r.m.length;
+    hb.textContent = r.m.join(' ');
+    ab.innerHTML = '<b>Check the heat first.</b> ' + r.m.join(' ').replace(/</g, '&lt;') + ' <button class="btn ghost sm" data-go="heat">Edit heat</button>';
+  };
+  document.addEventListener('input', run); document.addEventListener('click', () => setTimeout(run, 50)); setTimeout(run, 300);
+})();
+
 /* ---- Self-update: check on open, focus, return, reconnect and every 5 minutes; reload at a safe moment ---- */
 (function () {
-  const VER = '3.16';
+  const VER = '3.17';
   try {
     const seen = localStorage.getItem('meltlab_ver_seen');
     if (seen && seen !== VER) {
