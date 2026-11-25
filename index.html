@@ -1167,7 +1167,7 @@ if (typeof module !== 'undefined') module.exports = MLFind;
   // ---- From the screen: snapshot of the furnace summary, per-tonne figures derived on this device ----
   const SS = [['dri', 'DRI charged (t)'], ['bkt', 'Buckets charged (t)'], ['lime', 'Lime charged (kg)'], ['dolo', 'Dolomite charged (kg)'], ['coke', 'Coke charged (kg)'],
     ['mw', 'Active power (MW)'], ['mwh', 'Active energy (MWh)'], ['pon', 'Power-on time (min:sec)'], ['ht', 'Heat time (min:sec)'], ['o2', 'Oxygen consumed (Nm3)'], ['fuel', 'Fuel consumed (Nm3)'],
-    ['carb', 'Carbon injected (kg)'], ['tap', 'Transformer tap'], ['rtap', 'Reactor tap'], ['curve', 'Current curve'], ['step', 'Process step (Contfeed or Refining)'], ['phase', 'Process phase']];
+    ['carb', 'Carbon injected (kg)'], ['tap', 'Transformer tap'], ['rtap', 'Reactor tap'], ['curve', 'Current curve'], ['practice', 'Practice (100% DRI or 1 bucket)'], ['step', 'Process step (Melting1, Contfeed, Refining)'], ['phase', 'Process phase']];
   const mins = v => { v = String(v == null ? '' : v).trim(); if (!v) return null; const m = v.match(/^(\d+):(\d{1,2})$/); if (m) return +m[1] + (+m[2]) / 60; return n(v); };
   function derive(S) {
     S = S || {}; const d = { miss: [] }, g = k => n(S[k]);
@@ -1201,24 +1201,29 @@ if (typeof module !== 'undefined') module.exports = MLFind;
   showScr();
 
   // ---- Phase profile: the furnace's per-phase recipe (typed or pasted), kept on this device ----
-  const PR = [['ptime', 'Power-on time (planned/actual)'], ['pkwh', 'Cumulative energy (kWh)'], ['prate', 'DRI rate (kg/min)'], ['pwt', 'Phase DRI weight (kg)'], ['pcum', 'Cumulative DRI weight (kg)'],
+  const PR = [['ptime', 'Power-on time (planned/actual)'], ['pkwh', 'Cumulative energy (kWh)'], ['pspec', 'Specific energy (kWh/t)'], ['prate', 'DRI rate (kg/min)'], ['pspr', 'DRI spec rate (kg/min/MW)'], ['ppctw', 'DRI weight (%)'], ['pwt', 'Phase DRI weight (kg)'], ['pcum', 'Cumulative DRI weight (kg)'],
     ['pmw', 'Active power (MW)'], ['ppct', 'Active power actual/nominal (%)'], ['tap', 'Transformer tap'], ['curve', 'Current curve'], ['rtap', 'Reactor position'], ['qgain', 'QReg gain'], ['qtype', 'QReg setup type'],
-    ['w1', 'Electrode 1 water (l/min)'], ['w2', 'Electrode 2 water (l/min)'], ['w3', 'Electrode 3 water (l/min)']];
+    ['w1', 'Electrode 1 water (l/min)'], ['w2', 'Electrode 2 water (l/min)'], ['w3', 'Electrode 3 water (l/min)'],
+    ['i1f', 'Injector 1 fuel set (Nm3/h)'], ['i1b', 'Injector 1 burner line set'], ['i1o', 'Injector 1 O2 set'], ['i2f', 'Injector 2 fuel set'], ['i2b', 'Injector 2 burner line set'], ['i2o', 'Injector 2 O2 set'],
+    ['i3f', 'Injector 3 fuel set'], ['i3b', 'Injector 3 burner line set'], ['i3o', 'Injector 3 O2 set'], ['i4f', 'Injector 4 fuel set'], ['i4b', 'Injector 4 burner line set'], ['i4o', 'Injector 4 O2 set'],
+    ['dc1', 'Dispenser 1 carbon set (kg/min)'], ['dc2', 'Dispenser 2 carbon set (kg/min)']];
   const NP = 10;
-  let curProf = 'cont'; const stepProf = () => /^\s*r/i.test(String((M.s || {}).step || '')) ? 'ref' : 'cont';
-  const PFD = (pr, r) => (((M.pf || {})[pr] || {})[r] || []);
+  let curStep = 'cont', curPrac = 'dri';
+  const stepOf = s => /^\s*r/i.test(String(s || '')) ? 'ref' : /^\s*m/i.test(String(s || '')) ? 'melt' : 'cont';
+  const stepProf = () => stepOf((M.s || {}).step), pracProf = () => /bucket/i.test(String((M.s || {}).practice || '')) ? 'bkt' : 'dri';
+  const PFD = (prac, step, r) => { const P = M.pf || {}; const d = (P[prac + '.' + step] || {})[r]; if (d) return d; if (prac === 'dri' && P[step] && P[step][r]) return P[step][r]; return []; };
   const pf = document.createElement('div'); pf.id = 'pmProf';
-  pf.innerHTML = '<h2>Phase profile</h2><div class="card"><div class="pf-tabs"><button class="btn sm" data-p="cont">Contfeed</button><button class="btn ghost sm" data-p="ref">Refining</button></div><p class="sub" style="margin:0 0 10px">The furnace recipe for phases 1 to 10. Type it, or paste a whole row into its first box (numbers separated by spaces, tabs or commas). It stays on this device and is never sent anywhere.</p>' +
+  pf.innerHTML = '<h2>Phase profile</h2><div class="card"><div class="pf-tabs" id="pfPrac"><button class="btn sm" data-p="dri">100% DRI</button><button class="btn ghost sm" data-p="bkt">1 bucket + DRI</button></div><div class="pf-tabs" id="pfStep"><button class="btn ghost sm" data-p="melt">Melting 1</button><button class="btn sm" data-p="cont">Contfeed</button><button class="btn ghost sm" data-p="ref">Refining</button></div><p class="sub" style="margin:0 0 10px">The furnace recipe for phases 1 to 10. Type it, or paste a whole row into its first box (numbers separated by spaces, tabs or commas). It stays on this device and is never sent anywhere.</p>' +
     '<div class="pf-wrap"><table class="pf"><thead><tr><th></th>' + Array.from({ length: NP }, (_, i) => '<th>P' + (i + 1) + '</th>').join('') + '</tr></thead><tbody>' +
-    PR.map(r => '<tr><th>' + esc(r[1]) + '</th>' + Array.from({ length: NP }, (_, i) => '<td><input class="pf-in" data-r="' + r[0] + '" data-i="' + i + '" type="text" inputmode="text" value="' + esc(PFD('cont', r[0])[i] || '') + '"></td>').join('') + '</tr>').join('') +
+    PR.map(r => '<tr><th>' + esc(r[1]) + '</th>' + Array.from({ length: NP }, (_, i) => '<td><input class="pf-in" data-r="' + r[0] + '" data-i="' + i + '" type="text" inputmode="text" value="' + esc(PFD('dri', 'cont', r[0])[i] || '') + '"></td>').join('') + '</tr>').join('') +
     '</tbody></table></div><div id="pfOut" style="margin-top:12px"></div></div>';
   sc.insertBefore(pf, sh);
   const phaseNo = () => { const m = String((M.s || {}).phase || '').match(/\d+/); return m ? +m[0] : null; };
-    const pfv = (r, i) => (PFD(stepProf(), r)[i] || '').toString().trim();
+  const pfv = (r, i) => (PFD(pracProf(), stepProf(), r)[i] || '').toString().trim();
   const first = s => { const m = String(s).match(/-?\d+(?:[.,]\d+)?/); return m ? n(m[0]) : null; };
   function showPf() {
     const out = pf.querySelector('#pfOut'), ph = phaseNo(); if (!ph || ph < 1 || ph > NP) { out.innerHTML = '<p class="sub" style="margin:0">Enter the process step and phase under "From the furnace screen" to compare this heat with the recipe.</p>'; return; }
-    const i = ph - 1, S = M.s || {}; let h2 = '<div class="pm-o"><span>Recipe for phase ' + ph + ' (' + (stepProf() === 'ref' ? 'Refining' : 'Contfeed') + ')</span><b></b><i></i></div>';
+    const i = ph - 1, S = M.s || {}, d0 = derive(S); let h2 = '<div class="pm-o"><span>Recipe for phase ' + ph + ' (' + (pracProf() === 'bkt' ? '1 bucket + DRI, ' : '100% DRI, ') + ({ ref: 'Refining', melt: 'Melting 1', cont: 'Contfeed' }[stepProf()]) + ')</span><b></b><i></i></div>';
     const row = (a, b, c) => '<div class="pm-o"><span>' + a + '</span><b>' + esc(b) + '</b><i>' + (c || '') + '</i></div>';
     [['tap', 'Transformer tap'], ['curve', 'Current curve'], ['rtap', 'Reactor position']].forEach(x => {
       const want = pfv(x[0], i), have = String(S[x[0]] || '').trim(); if (!want) return;
@@ -1229,17 +1234,23 @@ if (typeof module !== 'undefined') module.exports = MLFind;
     if (e1 !== null && act !== null) { const pos = e0 !== null && e1 > e0 ? Math.round((act - e0) / (e1 - e0) * 100) : null; h2 += row('Energy so far vs recipe', fmt(act, 0) + ' kWh', 'recipe: ' + (e0 !== null ? fmt(e0, 0) : '-') + ' kWh at the end of phase ' + (ph - 1) + ', ' + fmt(e1, 0) + ' kWh at the end of phase ' + ph + (pos !== null ? '. About ' + pos + '% of the way through this phase\'s energy.' : '')); }
     const w1 = first(pfv('pcum', i)), w0 = i > 0 ? first(pfv('pcum', i - 1)) : 0, dri = n(S.dri) === null ? null : n(S.dri) * 1000;
     if (w1 !== null && dri !== null) h2 += row('DRI charged vs recipe', fmt(dri, 0) + ' kg', 'recipe cumulative: ' + (w0 !== null ? fmt(w0, 0) : '-') + ' kg at the end of phase ' + (ph - 1) + ', ' + fmt(w1, 0) + ' kg at the end of phase ' + ph);
+    const sum = ks => { let t = 0, c = 0; ks.forEach(k => { const v = n(pfv(k, i)); if (v !== null) { t += v; c++; } }); return c ? t : null; };
+    const o2s = sum(['i1o', 'i2o', 'i3o', 'i4o']), fs = sum(['i1f', 'i2f', 'i3f', 'i4f']), cs = sum(['dc1', 'dc2']), spc = first(pfv('pspec', i));
+    if (o2s !== null) h2 += row('Recipe oxygen set, 4 injectors', fmt(o2s, 0), 'Nm3/h in total. Compare with the injector flows on the screen.');
+    if (fs !== null) h2 += row('Recipe fuel set, 4 injectors', fmt(fs, 0), 'Nm3/h in total');
+    if (cs !== null) h2 += row('Recipe carbon set', fmt(cs, 1), 'kg/min in total');
+    if (spc !== null && d0.sec != null) h2 += row('Specific energy vs recipe', fmt(d0.sec, 0) + ' kWh/t', 'recipe nominal at the end of phase ' + ph + ': ' + fmt(spc, 0) + ' kWh/t');
     h2 += '<p class="sub" style="margin:8px 0 0">Progress against the recipe, not pass or fail. Advisory only. Check against your plant\'s procedures.</p>'; out.innerHTML = h2;
   }
   pf.addEventListener('input', e => {
-    const t = e.target; if (!t.classList.contains('pf-in')) return; const r = t.dataset.r; let i = +t.dataset.i; M.pf = M.pf || {}; M.pf[curProf] = M.pf[curProf] || {}; M.pf[curProf][r] = M.pf[curProf][r] || Array(NP).fill(''); const A = M.pf[curProf][r];
+    const t = e.target; if (!t.classList.contains('pf-in')) return; const r = t.dataset.r; let i = +t.dataset.i; M.pf = M.pf || {}; const K = curPrac + '.' + curStep; M.pf[K] = M.pf[K] || {}; if (!M.pf[K][r]) M.pf[K][r] = PFD(curPrac, curStep, r).slice(); while (M.pf[K][r].length < NP) M.pf[K][r].push(''); const A = M.pf[K][r];
     const parts = t.value.trim().split(/[\t,;]+|\s{2,}|\s+(?=-?\d)/).filter(x => x !== '');
     if (parts.length > 1 && /[\s\t,;]/.test(t.value.trim())) { parts.slice(0, NP - i).forEach((v, k) => { A[i + k] = v.trim(); }); pf.querySelectorAll('.pf-in[data-r="' + r + '"]').forEach((x, k) => { x.value = A[k] || ''; }); }
     else A[i] = t.value;
     save(); showPf();
   });
-  const _fill2 = fill; fill = function () { _fill2(); pf.querySelectorAll('.pf-in').forEach(x => { x.value = PFD(curProf, x.dataset.r)[+x.dataset.i] || ''; }); showPf(); };
-  pf.querySelectorAll('.pf-tabs button').forEach(b => b.onclick = () => { curProf = b.dataset.p; pf.querySelectorAll('.pf-tabs button').forEach(x => x.classList.toggle('ghost', x !== b)); fill(); });
+  const _fill2 = fill; fill = function () { _fill2(); pf.querySelectorAll('.pf-in').forEach(x => { x.value = PFD(curPrac, curStep, x.dataset.r)[+x.dataset.i] || ''; }); showPf(); };
+  pf.querySelectorAll('.pf-tabs button').forEach(b => b.onclick = () => { if (b.parentNode.id === 'pfPrac') curPrac = b.dataset.p; else curStep = b.dataset.p; b.parentNode.querySelectorAll('button').forEach(x => x.classList.toggle('ghost', x !== b)); fill(); });
   sh.addEventListener('input', () => showPf());
   showPf();
 
@@ -1278,7 +1289,7 @@ if (typeof module !== 'undefined') module.exports = MLFind;
 
 /* ---- Self-update: check on open, focus, return, reconnect and every 5 minutes; reload at a safe moment ---- */
 (function () {
-  const VER = '3.10';
+  const VER = '3.11';
   try {
     const seen = localStorage.getItem('meltlab_ver_seen');
     if (seen && seen !== VER) {
