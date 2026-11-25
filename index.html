@@ -199,6 +199,14 @@ html[data-theme=dark] .tile .v,html[data-theme=dark] .hero .big{color:#fff}
 .ux-note{margin:6px 4px 0;text-align:center}
 .tab{font-size:13px!important}.th{min-width:48px;min-height:48px}
 .imp-ck,.lab-ck,label:has(>input[type=checkbox]){min-height:48px;display:flex;align-items:center;gap:10px}
+.ux-next{border-color:var(--acc,#38bdf8)}.ux-next .l{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}.ux-next .t{font-size:20px;font-weight:700;margin:4px 0}.ux-next .d{font-size:15px}.ux-next .w{margin-top:8px;font-size:14px;color:var(--acc,#38bdf8);font-weight:600}
+.ux-rows{display:grid;gap:8px;margin-bottom:12px}.ux-rows>div{display:flex;align-items:baseline;gap:10px;min-height:44px;border-bottom:1px solid var(--line)}.ux-rows span{flex:1;color:var(--muted)}.ux-rows b{font-size:20px}.ux-rows i{font-style:normal;color:var(--muted);font-size:13px}
+#statusIn>svg,#statusIn .ring{display:none!important}
+.ux-quiet{opacity:.85;font-size:14px}
+.sc-in{width:110px;min-height:44px;font-size:18px;text-align:right}.sc-edit{display:flex;align-items:center;gap:6px}.sc-res{font-size:14px;color:var(--muted);margin:4px 0}
+.ux-def{border-bottom:1px dotted currentColor;cursor:help}.ux-tip{position:fixed;left:12px;right:12px;bottom:190px;z-index:50;background:#2b3138;color:#fff;padding:12px 14px;border-radius:12px;border:1px solid #444;font-size:14px}
+#s_why .reco:not(.open) .reco-formula,#s_why .reco:not(.open) .reco-why{display:none}#s_why .reco{cursor:pointer}
+.ai-ck{display:flex!important;width:100%;min-height:48px;align-items:center;gap:12px}.ai-ck input{width:24px;height:24px}
 </style>
 </head>
 <body>
@@ -574,14 +582,17 @@ function reco(title, value, formula, why, svg) {
     return '<div class="reco"><div class="reco-eyebrow">' + title + '</div><div class="reco-value">' + value + '</div>'
         + (svg || '') + '<div class="reco-formula">' + formula + '</div><div class="reco-why">' + why + '</div></div>';
 }
-function score(label, actual, expected, unit) {
-    if (actual === null) return '<div class="score"><div class="score-top"><span class="lab">' + label + '</span><span class="val">enter actual to compare</span></div></div>';
-    if (expected <= 0) return '<div class="score"><div class="score-top"><span class="lab">' + label + '</span><span class="val">model expects ~0 by now</span></div></div>';
+function score(label, actual, expected, unit, key) {
+    const raw = key && document.getElementById('f_' + key) ? document.getElementById('f_' + key).value : '';
+    const inp = key ? '<span class="sc-edit"><input class="sc-in" data-sc="' + key + '" inputmode="decimal" aria-label="' + label + ' actual" placeholder="enter actual" value="' + String(raw).replace(/"/g, '') + '"> ' + unit + '</span>' : '';
+    const head = '<div class="score-top"><span class="lab">' + label + '</span>' + inp + '</div>';
+    if (actual === null) return '<div class="score">' + head + '<div class="sc-res">Tap the box and type your reading to compare.</div></div>';
+    if (expected <= 0) return '<div class="score">' + head + '<div class="sc-res">Model expects about 0 by now.</div></div>';
     const dev = (actual - expected) / expected * 100;
     const ok = Math.abs(dev) <= 10;
     const word = ok ? 'on model' : (dev > 0 ? '+' + r0(dev) + '%' : r0(dev) + '%');
     const fill = Math.min(actual, expected) / Math.max(actual, expected) * 100;
-    return '<div class="score"><div class="score-top"><span class="lab">' + label + '</span><span class="val">' + r0(actual) + ' ' + unit + ' vs model ' + r0(expected) + '<span class="pill ' + (ok ? 'ok' : 'over') + '">' + word + '</span></span></div>'
+    return '<div class="score">' + head + '<div class="sc-res">Model expects ' + r0(expected) + ' ' + unit + '<span class="pill ' + (ok ? 'ok' : 'over') + '">' + word + '</span></div>'
         + '<div class="bar"><i class="' + (ok ? '' : 'over') + '" style="width:' + fill.toFixed(0) + '%"></i></div></div>';
 }
 
@@ -653,9 +664,9 @@ function render() {
     document.getElementById('recos').innerHTML = R.join('');
 
     document.getElementById('score').innerHTML =
-        score('Energy so far', m.kwhSoFar, m.expKwhNow, 'kWh') +
-        score('Oxygen so far', m.o2Used, m.expO2Now, 'Nm3') +
-        score('Carbon injected so far', num('cInj'), m.expCNow, 'kg');
+        score('Energy so far', m.kwhSoFar, m.expKwhNow, 'kWh', 'kwh') +
+        score('Oxygen so far', m.o2Used, m.expO2Now, 'Nm3', 'o2Used') +
+        score('Carbon injected so far', num('cInj'), m.expCNow, 'kg', 'cInj');
 
     document.getElementById('life').innerHTML = [
         reco('Hold foamy slag at high power', 'arc buried', 'Foam height roughly 2-3x the arc length buries it.', 'Most sidewall wear is arc flare during long flat-bath periods. Injection carbon in step with O2 keeps the foam up; that is what makes full power affordable.'),
@@ -1574,9 +1585,68 @@ if (typeof module !== 'undefined') module.exports = MLFind;
   }
 })();
 
+/* ---- v3.19: Advice hierarchy, inline scorecard, grouped constants, plain terms ---- */
+(function () {
+  const adv = document.getElementById('s_advice'); if (!adv) return;
+  // scorecard: tap to edit
+  document.addEventListener('change', e => {
+    const t = e.target; if (!t.classList || !t.classList.contains('sc-in')) return;
+    const f = document.getElementById('f_' + t.dataset.sc); if (!f) return;
+    f.value = t.value.trim(); f.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+  // do-this-next card + plain time rows
+  const next = document.createElement('div'); next.className = 'card ux-next';
+  const hero = adv.querySelector('.hero'); hero.insertAdjacentElement('afterend', next);
+  const rows = document.createElement('div'); rows.className = 'ux-rows'; const si = document.getElementById('statusIn'); si.parentNode.insertBefore(rows, si);
+  const upd = () => {
+    const st = [...document.querySelectorAll('#steps .step')];
+    if (st.length) {
+      const g = (s, q) => (s.querySelector(q) || {}).textContent || '';
+      const tm0 = g(st[0], '.tm'), tm1 = st[1] ? g(st[1], '.tm') : '';
+      next.innerHTML = '<div class="l">Do this next</div><div class="t">' + g(st[0], 'b').replace(/</g, '&lt;') + '</div><div class="d">' + g(st[0], '.d').replace(/</g, '&lt;') + '</div><div class="w">' + (tm1 ? 'Window: ' + tm0 + ' to ' + tm1 + ' from now' : 'From ' + tm0 + ' from now') + '</div>';
+    }
+    const v = s => { const e = si.querySelectorAll('.stat')[s]; return e ? [e.querySelector('.v').textContent, e.querySelector('.s').textContent] : ['', '']; };
+    const pt = (document.getElementById('profT') || {}).textContent || '';
+    const c = v(0), en = v(1);
+    rows.innerHTML = '<div><span>Tap in</span><b>' + pt.replace(' to tap', '') + '</b></div><div><span>Charge</span><b>' + c[0] + '</b><i>' + c[1] + '</i></div><div><span>Energy to tap</span><b>' + en[0] + '</b><i>' + en[1] + '</i></div>';
+  };
+  new MutationObserver(upd).observe(document.getElementById('steps'), { childList: true });
+  upd();
+  // steps: quieter list
+  const stp = document.getElementById('steps'); if (stp) stp.classList.add('ux-quiet');
+  // constants in folds
+  const cg = document.getElementById('constGrid');
+  if (cg) {
+    const groups = [['Melting energy', ['eDri', 'eScrap', 'cpLiquid', 'creditKwhPerKgC']], ['Slag and fluxes', ['driGangue', 'limeCao', 'basicity', 'doloKgPerT']], ['Injection and oxygen', ['fCO', 'o2Utilization', 'cInjPerNm3']]];
+    const used = new Set(); const cell = k => { const i = document.getElementById('f_' + k); return i ? i.parentNode : null; };
+    const mkG = (t, ks) => { const els = ks.map(cell).filter(Boolean); if (!els.length) return; const d = document.createElement('details'); d.className = 'ux-fold'; d.innerHTML = '<summary>' + t + '</summary><div class="ux-body"><div class="grid"></div></div>'; els.forEach(x => { used.add(x); d.querySelector('.grid').appendChild(x); }); cg.parentNode.insertBefore(d, cg); };
+    groups.forEach(g => mkG(g[0], g[1]));
+    const rest = [...cg.children].filter(x => !used.has(x)); if (rest.length) { const d = document.createElement('details'); d.className = 'ux-fold'; d.innerHTML = '<summary>Temperatures, feeder and alloys</summary><div class="ux-body"></div>'; cg.parentNode.insertBefore(d, cg); d.querySelector('.ux-body').appendChild(cg); }
+    else cg.remove();
+  }
+  // Reasoning: conclusion lines, tap for formula; method and assistant move to Settings
+  document.addEventListener('click', e => { const r = e.target.closest('#s_why .reco'); if (r && !e.target.closest('a,button,input')) r.classList.toggle('open'); });
+  const why = document.getElementById('s_why'), st = document.getElementById('s_settings');
+  if (why && st) {
+    const ds = [...why.querySelectorAll(':scope > details')]; const ai = document.getElementById('aiBox'); const aiCard = ai && ai.closest('.card');
+    const h = document.createElement('h2'); h.textContent = 'Help and method'; st.appendChild(h);
+    ds.forEach(d => st.appendChild(d)); if (aiCard) { const hh = [...why.children].find(x => x.tagName === 'H2' && /assistant/i.test(x.textContent)); if (hh) st.appendChild(hh); st.appendChild(aiCard); }
+    const n = document.createElement('p'); n.className = 'sub'; n.style.margin = '0 4px 10px'; n.textContent = 'Tap a card to see its formula. The method notes and glossary are under Settings, Help and method.'; why.querySelector('header').insertAdjacentElement('afterend', n);
+  }
+  // plain terms
+  const defs = { DRI: 'Direct reduced iron: iron ore with the oxygen removed, fed to the furnace as a charge.', 'Nm3': 'Normal cubic metre: a volume of gas measured at standard conditions.', FeMn: 'Ferro-manganese, an alloy added to raise manganese.', FeSi: 'Ferro-silicon, an alloy added to raise silicon.', superheat: 'Degrees above the temperature where the steel is fully liquid.', B2: 'Slag basicity: CaO divided by SiO2.', gangue: 'Rock left in the DRI that ends up in the slag, mostly SiO2.', metallization: 'Share of the iron in the DRI that is metallic, not oxide.' };
+  const re = new RegExp('\\b(' + Object.keys(defs).join('|') + ')\\b');
+  const tip = document.createElement('div'); tip.className = 'ux-tip'; tip.hidden = true; document.body.appendChild(tip);
+  document.querySelectorAll('#s_heat label, #s_settings label, #s_plant .sub, #s_settings .sub, #s_heat .sub').forEach(el => {
+    const w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT); const ns = []; while (w.nextNode()) ns.push(w.currentNode);
+    ns.forEach(n => { const m = re.exec(n.nodeValue); if (!m) return; const sp = document.createElement('span'); sp.className = 'ux-def'; sp.dataset.def = m[1]; sp.textContent = m[1]; const a = n.nodeValue.slice(0, m.index), z = n.nodeValue.slice(m.index + m[1].length); const p = n.parentNode; p.insertBefore(document.createTextNode(a), n); p.insertBefore(sp, n); n.nodeValue = z; });
+  });
+  document.addEventListener('click', e => { const d = e.target.closest('.ux-def'); if (d) { e.preventDefault(); tip.textContent = d.dataset.def + ': ' + defs[d.dataset.def]; tip.hidden = false; clearTimeout(tip._t); tip._t = setTimeout(() => tip.hidden = true, 6000); } else tip.hidden = true; }, true);
+})();
+
 /* ---- Self-update: check on open, focus, return, reconnect and every 5 minutes; reload at a safe moment ---- */
 (function () {
-  const VER = '3.18';
+  const VER = '3.19';
   try {
     const seen = localStorage.getItem('meltlab_ver_seen');
     if (seen && seen !== VER) {
