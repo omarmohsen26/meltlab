@@ -172,6 +172,10 @@ html[data-theme=dark] .tile .v,html[data-theme=dark] .hero .big{color:#fff}
 .ai-box{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:12px}.ai-ck{display:flex;gap:8px;align-items:center;font-size:13px;color:var(--muted)}.ai-ck input:disabled+span{opacity:.4}
 .ai-pre{white-space:pre-wrap;font:inherit;font-size:13px;margin:8px 0}.ai-ans{font-size:14px;line-height:1.5;margin-top:8px}#aiPv .btn{margin-top:8px}
 .ai-warn{font-size:13px;line-height:1.4;color:var(--warn-t);margin:0 0 12px}
+.pm-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}.pm-f{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted)}
+.pm-in{width:100%;box-sizing:border-box;background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:12px;padding:10px;font:inherit;font-size:16px;min-width:0}
+.pm-tab .pm-h,.pm-tab .pm-r{display:grid;grid-template-columns:1.3fr 1fr 1fr 1fr;gap:6px;align-items:center;margin-bottom:6px;font-size:12px;color:var(--muted)}
+.pm-o{display:grid;grid-template-columns:1.2fr 1fr;gap:2px 8px;padding:8px 0;border-bottom:1px solid var(--line)}.pm-o span{color:var(--muted);font-size:13px}.pm-o b{font-size:17px;text-align:right}.pm-o i{grid-column:1/3;text-align:right;font-style:normal;font-size:11px;color:var(--muted)}
 </style>
 </head>
 <body>
@@ -1065,6 +1069,117 @@ if (typeof module !== 'undefined') module.exports = MLFind;
     }
     out.innerHTML = '<p class="sub">Could not get an answer: ' + esc(lastErr) + '</p>'; btn.disabled = false;
   }
+})();
+
+/* ---- Plant model: your own correction workbook, calculated on this device. No numbers ship with the app. ---- */
+(function () {
+  const SK = 'meltlab_pm';
+  const REF = [['charge', 'Charged weight (t)', 4], ['temp', 'Tap temperature (C)', 5], ['poff', 'Power-off time (min)', 6], ['flux', 'Slag formers (kg/t)', 7],
+    ['o2', 'Oxygen (Nm3/t)', 9], ['fuel', 'Fuel (Nm3/t)', 10], ['power', 'Average power (MW)', 11], ['cdri', 'DRI share (%)', 12], ['cin', 'Carbon in DRI (%)', 13], ['met', 'DRI metallization (%)', 14]];
+  const YQ = [['fe', 'Total iron', 'Q4'], ['gang', 'Gangue', 'Q6'], ['c', 'Carbon', 'Q7'], ['fines', 'Fines', 'Q8'], ['feo', 'FeO in slag', 'Q9']];
+  const RD = [['rFe', 'Reference DRI: total iron (%)', 'R15'], ['rGang', 'Reference DRI: gangue (%)', 'N15'], ['rC', 'Reference DRI: carbon (%)', 'I15'], ['rFines', 'Reference DRI: fines (%)', 'T15'], ['rFeo', 'Reference FeO in slag (%)', 'AE15']];
+  const KS = [['kwhOpt', 'Optimum energy (kWh/t)', 'B18'], ['hot', 'Hot-heat energy credit (kWh/t)', null], ['elecOpt', 'Optimum electrode (kg/t)', 'C21'], ['y2Opt', 'Optimum yield, method 2 (%)', 'B24'],
+    ['scrapY', 'Scrap yield (%)', null], ['reqTons', 'Requested tons (t)', 'I25'], ['limeFrac', 'Lime fraction of flux', 'B28'], ['limeCaO', 'Lime CaO (%)', 'C28'], ['doloCaO', 'Dolomite CaO (%)', 'C29'],
+    ['curLime', 'Current lime (kg)', 'D28'], ['curDolo', 'Current dolomite (kg)', 'D29'], ['basic', 'Target basicity (CaO/SiO2)', null], ['doloMgO', 'Dolomite MgO (%)', null], ['otherMgO', 'Other MgO (kg)', null], ['slagF', 'Slag per flux factor', null]];
+  const HS = [['dC', 'DRI carbon (%)', 'I16'], ['dGang', 'DRI gangue (%)', 'N16'], ['dSio2', 'DRI SiO2 (%)', 'O16'], ['dCao', 'DRI CaO (%)', 'P16'], ['dFe', 'DRI total iron (%)', 'R16'], ['dMet', 'DRI metallization (%)', 'S16'],
+    ['dFines', 'DRI fines (%)', 'T16'], ['poff', 'Power-off time (min)', 'Y16'], ['temp', 'Tap temperature (C)', 'Z16'], ['power', 'Average power (MW)', 'AA16'], ['o2', 'Oxygen (Nm3/t)', 'AB16'],
+    ['gas', 'Fuel (Nm3/t)', 'AC16'], ['driPct', 'DRI share (%)', 'AD16'], ['feo', 'FeO in slag (%)', 'AE16']];
+  let M; try { M = JSON.parse(localStorage.getItem(SK) || '{}'); } catch (e) { M = {}; }
+  const save = () => { try { localStorage.setItem(SK, JSON.stringify(M)); } catch (e) {} };
+  const esc = t => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const n = v => { const x = parseFloat(String(v == null ? '' : v).replace(',', '.')); return isNaN(x) ? null : x; };
+  const get = (g, k) => (M[g] || {})[k];
+
+  // ---- engine (pure) ----
+  function calc(M) {
+    const R = k => (M.ref || {})[k] || {}, Y = M.yq || {}, D = M.rd || {}, K = M.k || {}, H = M.h || {};
+    const miss = [], need = (v, name) => { const x = n(v); if (x === null) miss.push(name); return x === null ? NaN : x; };
+    const o = { miss };
+    const flux = need(K.curLime, 'Current lime') + need(K.curDolo, 'Current dolomite');
+    const y1 = (need(H.dFe, 'DRI total iron') - flux * need(K.slagF, 'Slag factor') * need(H.feo, 'FeO in slag') / 1000 + need(Y.fines, 'Yield factor: fines') * need(H.dFines, 'DRI fines')) * need(H.driPct, 'DRI share') / 100 + (1 - H.driPct / 100) * need(K.scrapY, 'Scrap yield');
+    o.yield1 = y1; o.charge = need(K.reqTons, 'Requested tons') * 100 / y1;
+    const r = (k, f) => need(R(k).r, 'Reference ' + k), e = k => need(R(k).e, 'kWh factor ' + k), f = k => need(R(k).f, 'Electrode factor ' + k);
+    const kw = need(K.kwhOpt, 'Optimum energy') + (o.charge - r('charge')) * e('charge') + (need(H.temp, 'Tap temperature') - r('temp')) * e('temp') + (need(H.poff, 'Power-off') - r('poff')) * e('poff') + (flux - r('flux')) * e('flux') +
+      (r('cin') - need(H.dC, 'DRI carbon')) * e('cin') * 10 + (r('met') - need(H.dMet, 'DRI metallization')) * e('met') + (r('power') - need(H.power, 'Average power')) * e('power') +
+      (r('o2') - need(H.o2, 'Oxygen')) * e('o2') + (r('fuel') - need(H.gas, 'Fuel')) * e('fuel') + (r('cdri') - H.driPct) * e('cdri');
+    o.kwh = kw; o.kwhHot = kw - need(K.hot, 'Hot credit');
+    o.elec = need(K.elecOpt, 'Optimum electrode') + (o.charge - r('charge')) * f('charge') + (H.temp - r('temp')) * f('temp') + (H.poff - r('poff')) * f('poff') + (flux - r('flux')) * f('flux') +
+      (H.o2 - r('o2')) * f('o2') + (H.gas - r('fuel')) * f('fuel') + (H.power - r('power')) * f('power') + (H.driPct - r('cdri')) * f('cdri') + (r('cin') - H.dC) * f('cin') + (r('met') - H.dMet) * f('met');
+    o.yield2 = need(K.y2Opt, 'Optimum yield 2') + (H.dFe - need(D.rFe, 'Ref DRI iron')) * need(Y.fe, 'Yield factor: iron') + (H.dGang - need(D.rGang, 'Ref DRI gangue')) * need(Y.gang, 'Yield factor: gangue') +
+      (H.dC - need(D.rC, 'Ref DRI carbon')) * need(Y.c, 'Yield factor: carbon') + (H.dFines - need(D.rFines, 'Ref DRI fines')) * Y.fines + (H.feo - need(D.rFeo, 'Ref FeO')) * need(Y.feo, 'Yield factor: FeO');
+    const lf = need(K.limeFrac, 'Lime fraction'), mixCaO = lf * need(K.limeCaO, 'Lime CaO') + (1 - lf) * need(K.doloCaO, 'Dolomite CaO');
+    o.fluxReq = (need(H.dSio2, 'DRI SiO2') * 10 * need(K.basic, 'Target basicity') - need(H.dCao, 'DRI CaO') * 10) / mixCaO * 100;
+    const slag = (F, dolo) => ({ mgo: (dolo * K.doloMgO / 100 + need(K.otherMgO, 'Other MgO')) / (F * K.slagF), cao: ((mixCaO * F) / 100 + H.dCao * 10) / (F * K.slagF), sio2: H.dSio2 * 10 / (F * K.slagF) });
+    o.slagNow = slag(flux, K.curDolo); o.slagReq = slag(o.fluxReq, (1 - lf) * o.fluxReq);
+    o.lime = lf * o.fluxReq; o.dolo = (1 - lf) * o.fluxReq; o.limeT = o.lime * K.reqTons; o.doloT = o.dolo * K.reqTons; o.fluxT = o.limeT + o.doloT;
+    o.miss = [...new Set(miss)];
+    return o;
+  }
+  window.__plantCalc = calc;
+
+  // ---- screen ----
+  const sc = document.createElement('div'); sc.className = 'screen'; sc.id = 's_plant';
+  const cellIn = (g, k, ph) => '<input class="pm-in" data-g="' + g + '" data-k="' + k + '" type="text" inputmode="decimal" placeholder="' + (ph || '') + '" value="' + esc(get(g, k) == null ? '' : get(g, k)) + '">';
+  const field = (g, k, lab) => '<label class="pm-f"><span>' + esc(lab) + '</span>' + cellIn(g, k) + '</label>';
+  let h = '<header><div><h1>Plant model</h1><div class="sub">Your own workbook logic. Stored only on this device</div></div></header>' +
+    '<div class="card"><p class="sub" style="margin:0 0 10px">Load your correction workbook (xlsx). It is read on this device and never uploaded. Check every value after loading. The assistant never sees anything on this screen.</p>' +
+    '<input type="file" id="pmFile" accept=".xlsx,.xls" hidden><button class="btn" id="pmLoad">Load my workbook</button><div class="sub" id="pmMsg" style="margin-top:8px"></div></div>' +
+    '<h2>Results</h2><div class="card" id="pmOut"></div>' +
+    '<h2>This heat</h2><div class="pm-grid">' + HS.map(x => field('h', x[0], x[1])).join('') + '</div>' +
+    '<h2>Reference DRI and heat</h2><div class="pm-grid">' + RD.map(x => field('rd', x[0], x[1])).join('') + '</div>' +
+    '<h2>Corrections per unit of change</h2><div class="pm-tab"><div class="pm-h"><span></span><span>Reference</span><span>kWh/t</span><span>Electrode kg/t</span></div>' +
+    REF.map(x => '<div class="pm-r"><span>' + esc(x[1]) + '</span>' + ['r', 'e', 'f'].map(c => cellIn('ref.' + x[0], c)).join('') + '</div>').join('') + '</div>' +
+    '<h2>Yield factors (per 1% change)</h2><div class="pm-grid">' + YQ.map(x => field('yq', x[0], x[1])).join('') + '</div>' +
+    '<h2>Targets, flux and constants</h2><div class="pm-grid">' + KS.map(x => field('k', x[0], x[1])).join('') + '</div>' +
+    '<button class="btn ghost sm" id="pmClear">Erase plant model from this device</button><div style="height:90px"></div>';
+  sc.innerHTML = h; const stg = document.getElementById('s_settings'); stg.parentNode.insertBefore(sc, stg.nextSibling);
+
+  sc.addEventListener('input', e => {
+    const t = e.target; if (!t.dataset || !t.dataset.g) return;
+    const g = t.dataset.g;
+    if (g.startsWith('ref.')) { const k = g.slice(4); M.ref = M.ref || {}; M.ref[k] = M.ref[k] || {}; M.ref[k][t.dataset.k] = t.value; }
+    else { M[g] = M[g] || {}; M[g][t.dataset.k] = t.value; }
+    save(); show();
+  });
+  const fmt = (v, d) => (v == null || !isFinite(v)) ? '-' : (Math.round(v * Math.pow(10, d)) / Math.pow(10, d)).toString();
+  function show() {
+    const o = calc(M), out = sc.querySelector('#pmOut');
+    if (o.miss.length) { out.innerHTML = '<p class="sub" style="margin:0">Fill or load these to see results: ' + esc(o.miss.slice(0, 8).join(', ')) + (o.miss.length > 8 ? ' and ' + (o.miss.length - 8) + ' more' : '') + '.</p>'; return; }
+    const row = (a, b, c) => '<div class="pm-o"><span>' + a + '</span><b>' + b + '</b><i>' + (c || '') + '</i></div>';
+    out.innerHTML = row('Expected energy', fmt(o.kwh, 1), 'kWh/t') + row('Hot-heat energy', fmt(o.kwhHot, 1), 'kWh/t') + row('Expected electrode', fmt(o.elec, 3), 'kg/t') +
+      row('Yield, method 1', fmt(o.yield1, 2), '%') + row('Yield, method 2', fmt(o.yield2, 2), '%') + row('Charge needed', fmt(o.charge, 2), 't') +
+      row('Flux required', fmt(o.fluxReq, 2), 'kg/t') + row('Lime / dolomite', fmt(o.lime, 2) + ' / ' + fmt(o.dolo, 2), 'kg/t') + row('For requested tons', fmt(o.limeT, 0) + ' / ' + fmt(o.doloT, 0), 'kg lime / dolomite') +
+      row('Slag now: MgO, CaO, SiO2', fmt(o.slagNow.mgo, 3) + ', ' + fmt(o.slagNow.cao, 3) + ', ' + fmt(o.slagNow.sio2, 3), '') + row('Slag at required flux', fmt(o.slagReq.mgo, 3) + ', ' + fmt(o.slagReq.cao, 3) + ', ' + fmt(o.slagReq.sio2, 3), '') +
+      '<p class="sub" style="margin:10px 0 0">Calculated from your own workbook factors. Advisory only. Check against your plant\'s procedures.</p>';
+  }
+  show();
+
+  // ---- workbook loader ----
+  let xl; const lib = () => xl || (xl = new Promise((res, rej) => { if (window.XLSX) return res(); const s = document.createElement('script'); s.src = 'lib/xlsx.mini.min.js'; s.onload = res; s.onerror = () => rej(new Error('Could not load the reader. Open the app once online.')); document.head.appendChild(s); }));
+  function fill() { sc.querySelectorAll('.pm-in').forEach(i => { const g = i.dataset.g, k = i.dataset.k, v = g.startsWith('ref.') ? ((M.ref || {})[g.slice(4)] || {})[k] : get(g, k); i.value = v == null ? '' : v; }); show(); }
+  sc.querySelector('#pmLoad').onclick = () => sc.querySelector('#pmFile').click();
+  sc.querySelector('#pmFile').onchange = async ev => {
+    const f = ev.target.files[0]; ev.target.value = ''; if (!f) return; const msg = sc.querySelector('#pmMsg'); msg.textContent = 'Reading...';
+    try {
+      await lib(); const wb = XLSX.read(await f.arrayBuffer(), { type: 'array', cellFormula: true }); const ws = wb.Sheets[wb.SheetNames[0]];
+      const cv = a => { const c = ws[a]; return c && c.v != null && c.v !== '' ? c.v : null; }, fm = a => { const c = ws[a]; return c && c.f ? String(c.f) : ''; };
+      const nm = {}; let cnt = 0; const put = (g, k, v) => { if (v == null) return; if (g.startsWith('ref.')) { const kk = g.slice(4); nm.ref = nm.ref || {}; nm.ref[kk] = nm.ref[kk] || {}; nm.ref[kk][k] = String(v); } else { nm[g] = nm[g] || {}; nm[g][k] = String(v); } cnt++; };
+      REF.forEach(x => { put('ref.' + x[0], 'r', cv('C' + x[2])); put('ref.' + x[0], 'e', cv('E' + x[2])); put('ref.' + x[0], 'f', cv('F' + x[2])); });
+      YQ.forEach(x => put('yq', x[0], cv(x[2]))); RD.forEach(x => put('rd', x[0], cv(x[2]))); HS.forEach(x => put('h', x[0], cv(x[2]))); KS.forEach(x => { if (x[2]) put('k', x[0], cv(x[2])); });
+      const rx = (s, re) => { const m = s.match(re); return m ? m[1] : null; };
+      put('k', 'scrapY', rx(fm('S22'), /\(\s*100%\s*-\s*AD16%\s*\)\s*\*\s*([\d.]+)/i)); put('k', 'hot', rx(fm('D19'), /-\s*([\d.]+)\s*$/));
+      put('k', 'basic', rx(fm('B27'), /O16\*10\*([\d.]+)\)/)); put('k', 'doloMgO', rx(fm('I30'), /D29\*([\d.]+)%/)); put('k', 'otherMgO', rx(fm('I30'), /%\+([\d.]+)\)/)); put('k', 'slagF', rx(fm('I30'), /D30\*([\d.]+)\)/));
+      M = nm; save(); fill(); const o = calc(M);
+      msg.textContent = cnt + ' values loaded. ' + (o.miss.length ? 'Still missing: ' + o.miss.slice(0, 5).join(', ') + '. ' : '') + 'Check them against your workbook before relying on the results.';
+    } catch (e) { msg.textContent = 'Could not read this file: ' + e.message; }
+  };
+  sc.querySelector('#pmClear').onclick = () => { if (!confirm('Erase the plant model from this device?')) return; M = {}; save(); try { localStorage.removeItem(SK); } catch (e) {} fill(); sc.querySelector('#pmMsg').textContent = 'Erased.'; };
+  document.getElementById('wipeAll').addEventListener('click', () => { try { localStorage.removeItem(SK); } catch (e) {} });
+
+  // entry points: Settings and Heat screen
+  const mk = () => { const b = document.createElement('button'); b.className = 'btn ghost sm'; b.textContent = 'Plant model (your workbook, on this device)'; b.onclick = () => go('plant'); return b; };
+  const appH = [...document.querySelectorAll('#s_settings h2')].find(x => x.textContent.trim() === 'App'); if (appH) appH.parentNode.insertBefore(mk(), appH);
+  const logBtn = document.getElementById('logBtn'); if (logBtn) logBtn.parentNode.insertBefore(mk(), logBtn.nextSibling);
 })();
 </script>
 <script>
