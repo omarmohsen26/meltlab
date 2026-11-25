@@ -157,6 +157,17 @@ header .hr{display:flex;gap:8px;align-items:center}
 @media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 html[data-theme=dark] .tile .v,html[data-theme=dark] .hero .big{color:#fff}
 .tiles{gap:8px}.tile{padding:16px 12px}
+#impCard{margin-top:16px}
+.imp-t{font-size:16px;font-weight:700}.imp-s{font-size:13px;color:var(--muted);margin-top:4px;line-height:1.5}
+.imp-btn{display:flex;align-items:center;justify-content:center;margin-top:12px}
+.imp-priv{display:flex;gap:8px;align-items:center;font-size:12.5px;color:var(--muted);margin-top:12px}.imp-priv svg{width:16px;height:16px;flex:none;stroke:currentColor;fill:none;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round}
+.imp-msg{font-size:13px;color:var(--ink);margin-top:8px;line-height:1.5}.imp-msg:empty{display:none}
+.imp-read pre{white-space:pre-wrap;font-size:12px;color:var(--muted);max-height:180px;overflow:auto}.imp-read summary{font-size:13px;color:var(--muted)}
+.imp-list{max-height:48vh;overflow:auto;margin:0 -4px}
+.imp-row{display:flex;gap:10px;align-items:center;padding:10px 4px;border-top:1px solid var(--line)}.imp-row:first-child{border-top:0}
+.imp-ck{width:48px;height:48px;display:grid;place-items:center;flex:none}.imp-ck input{width:22px;height:22px;accent-color:var(--acc)}
+.imp-c{flex:1;min-width:0}.imp-l{font-size:14px;font-weight:600}.imp-src{font-size:12px;color:var(--muted);overflow-wrap:anywhere;margin-top:2px}
+.imp-v{width:96px;flex:none;font:inherit;font-weight:700;font-size:16px;background:var(--paper);color:var(--ink);border:1px solid var(--line);border-radius:12px;padding:10px;text-align:right;min-height:48px}
 </style>
 </head>
 <body>
@@ -749,6 +760,201 @@ if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('sw.js', { scope: './', updateViaCache: 'none' }).then(r => r.update()).catch(() => {});
 }
 
+</script>
+<script>/* ---- field finder (pure, on-device) ---- */
+const MLFind = (function () {
+    const X = (re) => re;
+    const ORDER = [
+        ['tgtC', /^(?=.*(target|aim|tap))(?=.*(carbon|\bC\b))/i],
+        ['tgtMn', /^(?=.*(target|aim|tap))(?=.*(manganese|\bMn\b))/i],
+        ['tgtSi', /^(?=.*(target|aim|tap))(?=.*(silicon|\bSi\b))/i],
+        ['total', /total\s*charge|planned\s*charge|charge\s*planned|heat\s*size|heat\s*weight|charge\s*weight/i],
+        ['charged', /charged\s*so\s*far|charged\s*to\s*date|charged\s*now|^charged\b/i],
+        ['basket', /scrap\s*basket|basket/i],
+        ['pwrLimit', /transformer|trafo|power\s*limit/i],
+        ['power', /power\s*available|available\s*power|arc\s*power|^power\b|\bMW\b/i],
+        ['kwh', /energy\s*used|energy\s*so\s*far|energy\s*consumed|electrical\s*energy|^energy\b|\bkwh\b|\bmwh\b/i],
+        ['feed', /dri\s*feed|feed\s*rate|^feed\b/i],
+        ['cInj', /carbon\s*inject|c\s*inject|injected\s*carbon|carbon\s*injected/i],
+        ['o2Used', /o2\s*used|oxygen\s*used|oxygen\s*blown|o2\s*blown|oxygen\s*consumed|\bo2\b/i],
+        ['jetsInstalled', /jets?\s*installed|installed\s*jets?|number\s*of\s*jets?/i],
+        ['jetsRunning', /jets?\s*running|running\s*jets?|active\s*jets?|jets?\s*on\b/i],
+        ['jetMin', /min(imum)?\s*(coherent\s*)?(flow)?\s*per\s*jet|jet\s*min/i],
+        ['jetMax', /max(imum)?\s*(flow)?\s*per\s*jet|jet\s*max/i],
+        ['window', /blow\s*window|window\s*left|time\s*left/i],
+        ['curC', /^(%\s*)?(c|carbon)(\s*(%|\(%\)|now|content|pct))?$|^carbon\b/i],
+        ['temp', /temperature|^temp\b|bath\s*temp|steel\s*temp|\u00b0\s*c/i],
+        ['curMn', /^(%\s*)?(mn|manganese)(\s*(%|\(%\)|now|content))?$|^manganese\b/i],
+        ['curSi', /^(%\s*)?(si|silicon)(\s*(%|\(%\)|now|content))?$|^silicon\b/i],
+        ['p', /^(%\s*)?(p|phosphorus|phosphorous)(\s*(%|\(%\)|now|content))?$|^phosph/i],
+        ['s', /^(%\s*)?(s|sulfur|sulphur)(\s*(%|\(%\)|now|content))?$|^sulph|^sulf/i],
+    ];
+    const RANGE = { curC: [0, 5], tgtC: [0, 5], temp: [1300, 1800], curMn: [0, 3], curSi: [0, 3], tgtMn: [0, 3], tgtSi: [0, 3], p: [0, 0.3], s: [0, 0.3] };
+    function keyFor(label) {
+        const l = String(label || '').trim();
+        if (!l || l.length > 60) return null;
+        for (const [k, re] of ORDER) {
+            if (re.test(l)) {
+                if (/^tgt/.test(k)) return k;
+                if (/target|aim/i.test(l)) return null;
+                return k;
+            }
+        }
+        return null;
+    }
+    function parseNum(s) {
+        s = String(s).trim();
+        if (/^-?\d{1,3}(,\d{3})+(\.\d+)?$/.test(s)) return parseFloat(s.replace(/,/g, ''));
+        if (/^-?\d+,\d+$/.test(s)) return parseFloat(s.replace(',', '.'));
+        const v = parseFloat(s);
+        return isNaN(v) ? null : v;
+    }
+    function finish(k, val, unit, src, how, out, seen) {
+        if (seen[k]) return;
+        let v = val, note = '', u = (unit || '').toLowerCase();
+        if (k === 'kwh' && u === 'mwh') { v = val * 1000; note = 'MWh converted to kWh'; }
+        if ((k === 'curC' || k === 'tgtC') && v > 5) { v = v / 100; note = 'read as points, converted to %'; }
+        if ((k === 'pwrLimit' || k === 'power') && u === 'kw') { v = val / 1000; note = 'kW converted to MW'; }
+        const r = RANGE[k];
+        let flag = how;
+        if (r && (v < r[0] || v > r[1])) flag = 'check';
+        seen[k] = true;
+        out.push({ key: k, value: Math.round(v * 10000) / 10000, src: String(src).slice(0, 80), how: flag, note });
+    }
+    // lines: array of strings ("Label: 0.85 %", "Label<TAB>0.85")
+    function fromLines(lines, out, seen) {
+        lines = lines.filter(l => String(l).trim() !== '');
+        const re1 = /^(.*?)\s*[:=\t;|]\s*(-?\d[\d.,]*)\s*([A-Za-z%\u00b0\u00b3/]*)/;
+        const re2 = /^(.*?[A-Za-z%)])\s+(-?\d[\d.,]*)\s*([A-Za-z%\u00b0\u00b3/]*)\s*$/;
+        for (let i = 0; i < lines.length; i++) {
+            const line = String(lines[i]).replace(/\s+/g, ' ').trim();
+            if (!line) continue;
+            let m = line.match(re1) || line.match(re2);
+            let label, num, unit, how = 'label';
+            if (m) { label = m[1]; num = parseNum(m[2]); unit = m[3]; }
+            else if (i + 1 < lines.length && /^-?\d[\d.,]*\s*[A-Za-z%\u00b0\u00b3/]*$/.test(String(lines[i + 1]).trim())) {
+                const m2 = String(lines[i + 1]).trim().match(/^(-?\d[\d.,]*)\s*([A-Za-z%\u00b0\u00b3/]*)$/);
+                label = line; num = parseNum(m2[1]); unit = m2[2]; how = 'label';
+            } else continue;
+            if (num === null) continue;
+            const k = keyFor(label);
+            if (k) finish(k, num, unit, line, how, out, seen);
+        }
+    }
+    // rows: array of arrays (spreadsheet)
+    function fromRows(rows, out, seen, sheet) {
+        // header mode: a row with 2+ recognised labels, then data rows below
+        for (let r = 0; r < Math.min(rows.length, 40); r++) {
+            const cols = []; rows[r].forEach((c, ci) => { const k = typeof c === 'string' ? keyFor(c) : null; if (k) cols.push([ci, k]); });
+            if (cols.length >= 2) {
+                let last = null;
+                for (let d = r + 1; d < rows.length; d++) { if (cols.some(([ci]) => typeof rows[d][ci] === 'number' || (typeof rows[d][ci] === 'string' && parseNum(rows[d][ci]) !== null))) last = d; }
+                if (last !== null) {
+                    cols.forEach(([ci, k]) => { const raw = rows[last][ci]; const n = typeof raw === 'number' ? raw : parseNum(raw); if (n !== null && n !== undefined) finish(k, n, '', (sheet || 'sheet') + ' row ' + (last + 1) + ': ' + rows[r][ci] + ' = ' + raw, 'table', out, seen); });
+                    return;
+                }
+            }
+        }
+        // key/value mode
+        const lines = [];
+        rows.forEach((row) => {
+            for (let ci = 0; ci < row.length; ci++) {
+                if (typeof row[ci] !== 'string' || !row[ci].trim()) continue;
+                let vi = -1;
+                for (let j = ci + 1; j < Math.min(row.length, ci + 4); j++) { if (row[j] !== '' && row[j] !== null && row[j] !== undefined) { vi = j; break; } }
+                if (vi >= 0) {
+                    const raw = row[vi]; const n = typeof raw === 'number' ? raw : (typeof raw === 'string' ? parseNum(raw) : null);
+                    if (n !== null) { lines.push(row[ci].trim() + '\t' + n + (typeof row[vi + 1] === 'string' && /^[A-Za-z%]{1,5}$/.test(row[vi + 1]) ? ' ' + row[vi + 1] : '')); }
+                }
+            }
+        });
+        fromLines(lines, out, seen);
+    }
+    return { keyFor, fromLines, fromRows, parseNum };
+})();
+if (typeof module !== 'undefined') module.exports = MLFind;
+
+/* ---- Import from a file: all parsing happens on this device ---- */
+(function () {
+    const LIBS = { xlsx: 'lib/xlsx.mini.min.js', docx: 'lib/mammoth.browser.min.js', pdf: 'lib/pdf.min.js' };
+    const loaded = {};
+    function loadLib(k) {
+        if (loaded[k]) return loaded[k];
+        loaded[k] = new Promise((res, rej) => { const s = document.createElement('script'); s.src = LIBS[k]; s.onload = res; s.onerror = () => rej(new Error('Could not load the reader. Open the app once online, then try again.')); document.head.appendChild(s); });
+        return loaded[k];
+    }
+    function esc(t) { return String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
+    const label = {}; Object.keys(FIELDS).forEach(g => { if (g !== 'consts') FIELDS[g].forEach(r => { label[r[0]] = r[1]; }); });
+    label.curC = 'Carbon now (%)'; label.tgtC = 'Target carbon (%)';
+    // card on the Heat screen
+    const hdr = document.querySelector('#s_heat header');
+    const card = document.createElement('div'); card.className = 'card'; card.id = 'impCard';
+    card.innerHTML = '<div class="imp-t">Import from a file</div><div class="imp-s">Excel, CSV, Word, text or text-based PDF. You review every value before it is used.</div>'
+        + '<label class="btn ghost imp-btn" for="impFile">Choose file</label><input id="impFile" type="file" accept=".xlsx,.xls,.csv,.tsv,.txt,.docx,.pdf" hidden>'
+        + '<div class="imp-priv"><svg viewBox="0 0 24 24"><rect x="4" y="11" width="16" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>Stays on this device. The file is read here, never uploaded or stored.</div>'
+        + '<div class="imp-msg" id="impMsg" role="status"></div>';
+    hdr.insertAdjacentElement('afterend', card);
+    const msg = (t) => { document.getElementById('impMsg').textContent = t || ''; };
+    document.getElementById('impFile').addEventListener('change', async (e) => {
+        const f = e.target.files[0]; e.target.value = '';
+        if (!f) return;
+        msg('Reading ' + f.name + ' ...');
+        try { const r = await readFile(f); if (!r.found.length) { msg('No known fields found in ' + f.name + '. Check the labels (for example "Carbon", "Temperature") or enter values by hand.'); if (r.text) showRead(r.text); return; } msg(''); review(r.found, f.name); }
+        catch (err) { msg(err && err.message ? err.message : 'Could not read this file.'); }
+    });
+    async function readFile(f) {
+        const name = f.name.toLowerCase(); const found = [], seen = {}; let text = '';
+        if (/\.(xlsx|xls)$/.test(name)) {
+            await loadLib('xlsx');
+            const wb = XLSX.read(await f.arrayBuffer(), { type: 'array' });
+            wb.SheetNames.forEach(sn => { const rows = XLSX.utils.sheet_to_json(wb.Sheets[sn], { header: 1, raw: true, defval: '' }); text += rows.slice(0, 30).map(r => r.join(' | ')).join('\n') + '\n'; MLFind.fromRows(rows, found, seen, sn); });
+        } else if (/\.(csv|tsv|txt)$/.test(name)) {
+            text = await f.text();
+            if (/\.(csv|tsv)$/.test(name)) { const d = /\t/.test(text.split('\n')[0]) ? '\t' : (text.split('\n')[0].split(';').length > text.split('\n')[0].split(',').length ? ';' : ','); const rows = text.split(/\r?\n/).filter(Boolean).map(l => l.split(d).map(c => { c = c.trim().replace(/^"|"$/g, ''); const n = MLFind.parseNum(c); return (n !== null && /^-?[\d.,]+$/.test(c)) ? n : c; })); MLFind.fromRows(rows, found, seen, 'CSV'); }
+            if (!found.length) MLFind.fromLines(text.split(/\r?\n/), found, seen);
+        } else if (/\.docx$/.test(name)) {
+            await loadLib('docx');
+            const r = await mammoth.extractRawText({ arrayBuffer: await f.arrayBuffer() }); text = r.value;
+            MLFind.fromLines(text.split(/\r?\n/), found, seen);
+        } else if (/\.pdf$/.test(name)) {
+            await loadLib('pdf');
+            pdfjsLib.GlobalWorkerOptions.workerSrc = 'lib/pdf.worker.min.js';
+            const pdf = await pdfjsLib.getDocument({ data: await f.arrayBuffer() }).promise; const lines = [];
+            for (let p = 1; p <= Math.min(pdf.numPages, 15); p++) {
+                const c = await (await pdf.getPage(p)).getTextContent(); const byY = {};
+                c.items.forEach(it => { const y = Math.round(it.transform[5] / 3); (byY[y] = byY[y] || []).push([it.transform[4], it.str]); });
+                Object.keys(byY).map(Number).sort((a, b) => b - a).forEach(y => lines.push(byY[y].sort((a, b) => a[0] - b[0]).map(x => x[1]).join(' ').trim()));
+            }
+            text = lines.join('\n');
+            if (!text.replace(/\s/g, '')) throw new Error('This PDF has no text layer (probably a scan). Scans and photos need OCR, which is the next release. Use Excel, Word or a text PDF for now.');
+            MLFind.fromLines(lines, found, seen);
+        } else throw new Error('This file type is not supported. Use .xlsx, .csv, .docx, .txt or a text PDF.');
+        return { found, text: text.split('\n').slice(0, 40).join('\n') };
+    }
+    function showRead(text) { const d = document.getElementById('impMsg'); d.insertAdjacentHTML('beforeend', '<details class="imp-read"><summary>What was read (first lines)</summary><pre>' + esc(text) + '</pre></details>'); }
+    function review(found, fname) {
+        const m = document.createElement('div'); m.className = 'modal'; m.id = 'impModal';
+        let rows = found.map((o, i) => '<div class="imp-row" data-i="' + i + '"><label class="imp-ck"><input type="checkbox" checked aria-label="Use ' + esc(label[o.key]) + '"></label><div class="imp-c"><div class="imp-l">' + esc(label[o.key] || o.key)
+            + (o.how === 'check' ? ' <span class="pill over">CHECK</span>' : '') + '</div><div class="imp-src">' + esc(o.src) + (o.note ? ' (' + esc(o.note) + ')' : '') + '</div></div><input class="imp-v" inputmode="decimal" value="' + o.value + '" aria-label="Value"></div>').join('');
+        m.innerHTML = '<div><h3>Review before using</h3><p class="sub" style="margin:4px 0 12px">' + found.length + ' value' + (found.length > 1 ? 's' : '') + ' found in ' + esc(fname) + '. Nothing is applied until you confirm. Fix any wrong number.</p><div class="imp-list">' + rows + '</div><div class="row"><button class="btn ghost" id="impCancel">Cancel</button><button class="btn" id="impApply">Apply values</button></div></div>';
+        document.body.appendChild(m);
+        m.querySelector('#impCancel').onclick = () => m.remove();
+        m.addEventListener('click', (e) => { if (e.target === m) m.remove(); });
+        m.querySelector('#impApply').onclick = () => {
+            let n = 0;
+            m.querySelectorAll('.imp-row').forEach(r => {
+                if (!r.querySelector('input[type=checkbox]').checked) return;
+                const o = found[+r.dataset.i]; const v = r.querySelector('.imp-v').value.trim();
+                if (v === '' || isNaN(parseFloat(v.replace(',', '.')))) return;
+                let val = v.replace(',', '.');
+                if ((o.key === 'curC' || o.key === 'tgtC') && state.carbonUnit === 'points') val = String(Math.round(parseFloat(val) * 100));
+                els[o.key].value = val; n++;
+            });
+            try { saveState(); } catch (e) {}
+            render(); m.remove(); msg(n + ' value' + (n === 1 ? '' : 's') + ' applied from the file. Check the Heat fields, then tap Get advice.');
+        };
+    }
+})();
 </script>
 <script>
 (function(){
