@@ -232,6 +232,26 @@ nav .tab.on{background:var(--acc);color:var(--accfg)!important;font-size:14px!im
 .badge{border-radius:99px}
 .th{background:rgba(255,255,255,.08)}
 .ux-fold{border-radius:22px}
+html.ag-lock body>*:not(#authgate){visibility:hidden}
+#authgate{position:fixed;inset:0;z-index:9999;display:none;align-items:center;justify-content:center;padding:20px;overflow:auto;background:radial-gradient(120% 80% at 20% 0%,#3a2a1c 0%,#1B1F24 55%,#14171b 100%)}
+.ag-card{width:100%;max-width:400px;padding:28px 22px;border-radius:28px;background:rgba(255,255,255,.08);backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);border:1px solid rgba(255,255,255,.16);box-shadow:0 20px 60px rgba(0,0,0,.45);color:#F3F1EE;font-family:inherit}
+.ag-logo{font-size:30px;font-weight:800;letter-spacing:-.5px;color:var(--acc,#F5A524)}
+.ag-sub{opacity:.7;font-size:14px;margin:2px 0 18px}
+.ag-h{font-size:20px;font-weight:700;margin:6px 0}.ag-p{opacity:.8;font-size:15px;line-height:1.45;margin:6px 0 16px}
+.ag-tabs{display:flex;gap:6px;padding:4px;border-radius:99px;background:rgba(0,0,0,.28);margin-bottom:14px}
+.ag-tabs button{flex:1;min-height:48px;border:0;border-radius:99px;background:transparent;color:inherit;font-weight:600;font-size:15px;font-family:inherit;opacity:.7}
+.ag-tabs button.on{background:var(--acc,#F5A524);color:#1B1F24;opacity:1}
+.ag-g{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;min-height:56px;border:0;border-radius:99px;background:#fff;color:#222;font-weight:600;font-size:16px;font-family:inherit}
+.ag-or{display:flex;align-items:center;gap:10px;margin:14px 0;opacity:.6;font-size:13px}.ag-or:before,.ag-or:after{content:"";flex:1;height:1px;background:rgba(255,255,255,.25)}
+#agF{display:flex;flex-direction:column;gap:10px}
+#agF input{min-height:56px;padding:0 18px;border-radius:18px;border:1px solid rgba(255,255,255,.18);background:rgba(0,0,0,.28);color:#fff;font-size:16px;font-family:inherit}
+.ag-go{min-height:56px;border:0;border-radius:99px;background:var(--acc,#F5A524);color:#1B1F24;font-weight:700;font-size:16px;font-family:inherit;width:100%}
+.ag-link{display:block;margin:12px auto 0;min-height:44px;background:none;border:0;color:var(--acc,#F5A524);font-weight:600;font-size:14px;font-family:inherit}
+.ag-msg{min-height:20px;margin-top:8px;font-size:14px;color:#ff8a80}.ag-msg.ok{color:#9be29b}
+.ag-note{margin-top:14px;font-size:12px;opacity:.6;line-height:1.4}
+.ag-row{display:flex;align-items:center;justify-content:space-between;gap:12px}.ag-k{font-size:12px;opacity:.65}.ag-who{font-weight:600;word-break:break-all}
+.ag-out{min-height:48px;padding:0 18px}
+.ag-row>div{min-width:0;flex:1}.ag-out{flex:none}
 </style>
 </head>
 <body>
@@ -1668,10 +1688,19 @@ if (typeof module !== 'undefined') module.exports = MLFind;
   });
   document.addEventListener('click', e => { const d = e.target.closest('.ux-def'); if (d) { e.preventDefault(); tip.textContent = d.dataset.def + ': ' + defs[d.dataset.def]; tip.hidden = false; clearTimeout(tip._t); tip._t = setTimeout(() => tip.hidden = true, 6000); } else tip.hidden = true; }, true);
 })();
+// v3.21 account card in Settings
+(function () {
+  const st = document.getElementById('s_settings'); if (!st) return;
+  const c = document.createElement('div'); c.className = 'card ag-acct';
+  c.innerHTML = '<div class="ag-row"><div><div class="ag-k">Signed in as</div><div class="ag-who">Signed in</div></div><button type="button" class="btn ag-out">Sign out</button></div><p class="sub" style="margin:8px 0 0">Only your name and email are stored online. Heats, specs and profiles stay on this device.</p>';
+  const hd = st.querySelector('header'); if (hd) hd.insertAdjacentElement('afterend', c); else st.prepend(c);
+  c.querySelector('.ag-out').addEventListener('click', () => { if (window.MLAuth) window.MLAuth.signOut(); });
+  if (window.MLAuth) window.MLAuth.paint();
+})();
 
 /* ---- Self-update: check on open, focus, return, reconnect and every 5 minutes; reload at a safe moment ---- */
 (function () {
-  const VER = '3.20';
+  const VER = '3.21';
   try {
     const seen = localStorage.getItem('meltlab_ver_seen');
     if (seen && seen !== VER) {
@@ -1711,5 +1740,6 @@ document.querySelectorAll('header').forEach(hd=>{const b=document.createElement(
 paint();
 })();
 </script>
+<script src="lib/auth.js"></script>
 </body>
 </html>
