@@ -171,6 +171,7 @@ html[data-theme=dark] .tile .v,html[data-theme=dark] .hero .big{color:#fff}
 .ai-in{width:100%;box-sizing:border-box;background:var(--paper);color:var(--ink);border:1px solid var(--line);border-radius:12px;padding:12px;font:inherit;font-size:16px;margin:0 0 8px}
 .ai-box{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:12px}.ai-ck{display:flex;gap:8px;align-items:center;font-size:13px;color:var(--muted)}.ai-ck input:disabled+span{opacity:.4}
 .ai-pre{white-space:pre-wrap;font:inherit;font-size:13px;margin:8px 0}.ai-ans{font-size:14px;line-height:1.5;margin-top:8px}#aiPv .btn{margin-top:8px}
+.ai-warn{font-size:13px;line-height:1.4;color:var(--warn-t);margin:0 0 12px}
 </style>
 </head>
 <body>
@@ -971,7 +972,7 @@ if (typeof module !== 'undefined') module.exports = MLFind;
                 if (v === '' || isNaN(parseFloat(v.replace(',', '.')))) return;
                 let val = v.replace(',', '.');
                 if ((o.key === 'curC' || o.key === 'tgtC') && state.carbonUnit === 'points') val = String(Math.round(parseFloat(val) * 100));
-                els[o.key].value = val; n++;
+                els[o.key].value = val; (window.__mlFile = window.__mlFile || {})[o.key] = 1; n++;
             });
             try { saveState(); } catch (e) {}
             render(); m.remove(); msg(n + ' value' + (n === 1 ? '' : 's') + ' applied from the file. Check the Heat fields, then tap Get advice.');
@@ -1011,7 +1012,8 @@ if (typeof module !== 'undefined') module.exports = MLFind;
   c.innerHTML = '<h2>Ask the assistant</h2><div class="card ask">' +
     '<p class="sub" style="margin:0 0 8px">Explains and compares. It does not decide. Nothing leaves your phone until you tap Send.</p>' +
     '<textarea class="ai-in" id="aiQ" rows="3" placeholder="Ask a question about this heat, for example: why is the oxygen figure higher than my usual?"></textarea>' +
-    '<div class="sub" style="margin:6px 0">Include these numbers (tick what to share):</div><div id="aiBox" class="ai-box"></div>' +
+    '<div class="sub" style="margin:6px 0">Include these numbers (all off by default):</div><div id="aiBox" class="ai-box"></div>' +
+    '<p class="ai-warn">Real heat numbers from your plant may be company data. Send them only if you are sure it is allowed. Safe use: general questions or made-up numbers. Values read from a file are never sent.</p>' +
     '<button class="btn" id="aiPrev">Preview what will be sent</button>' +
     '<div id="aiPv"></div><div id="aiOut"></div></div>';
   const note = why.querySelector('.note'); why.insertBefore(c, note);
@@ -1021,8 +1023,9 @@ if (typeof module !== 'undefined') module.exports = MLFind;
     const l = document.createElement('label'); l.className = 'ai-ck';
     l.innerHTML = '<input type="checkbox" data-k="' + k + '"><span>' + esc(lab[k] || k) + '</span>'; box.appendChild(l);
   });
-  function refreshBox() { box.querySelectorAll('input').forEach(i => { const v = els[i.dataset.k] && els[i.dataset.k].value; i.disabled = !v; if (!v) i.checked = false; }); }
-  document.querySelector('.tab[data-go=why]').addEventListener('click', refreshBox); refreshBox();
+  Object.keys(els).forEach(k => { if (els[k] && els[k].addEventListener) els[k].addEventListener('input', () => { if (window.__mlFile) delete window.__mlFile[k]; }); });
+  function refreshBox() { box.querySelectorAll('input').forEach(i => { const k = i.dataset.k, v = els[k] && els[k].value, f = window.__mlFile && window.__mlFile[k]; i.checked = false; i.disabled = !v || !!f; i.parentNode.title = f ? 'Read from a file: never sent' : ''; }); }
+  document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', refreshBox)); refreshBox();
 
   function clean(t) {
     t = String(t);
@@ -1041,7 +1044,7 @@ if (typeof module !== 'undefined') module.exports = MLFind;
     payload = user;
     const first = !g(OK);
     pv.innerHTML = '<div class="note"><b>This exact text goes to Groq (a third party)</b><pre class="ai-pre">' + esc(user) + '</pre>' +
-      (first ? '<p class="sub">First use: your text leaves this device and is processed by Groq. Their policy says requests are not kept by default, but may be logged up to 30 days for abuse checks. Do not include names or anything confidential.</p>' : '') +
+      (first ? '<p class="sub">First use: your text leaves this device and is processed by Groq. Their policy says requests are not kept by default, but may be logged up to 30 days for abuse checks. Real heat numbers from your plant may be company data: send them only if you are sure it is allowed. Safe use: general questions or made-up numbers.</p>' : '') +
       '<button class="btn" id="aiSend">' + (first ? 'I understand, send' : 'Send') + '</button></div>';
     pv.querySelector('#aiSend').onclick = send;
   };
