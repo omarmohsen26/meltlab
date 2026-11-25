@@ -1220,7 +1220,7 @@ if (typeof module !== 'undefined') module.exports = MLFind;
   pf.innerHTML = '<h2>Phase profile</h2><div class="card"><div class="pf-tabs" id="pfPrac"><button class="btn sm" data-p="dri">100% DRI</button><button class="btn ghost sm" data-p="bkt">1 bucket + DRI</button></div><div class="pf-tabs" id="pfStep"><button class="btn ghost sm" data-p="melt">Melting 1</button><button class="btn sm" data-p="cont">Contfeed</button><button class="btn ghost sm" data-p="ref">Refining</button></div><p class="sub" style="margin:0 0 10px">The furnace recipe for phases 1 to 10. Type it, or paste a whole row into its first box (numbers separated by spaces, tabs or commas). It stays on this device and is never sent anywhere.</p>' +
     '<div class="pf-wrap"><table class="pf"><thead><tr><th></th>' + Array.from({ length: NP }, (_, i) => '<th>P' + (i + 1) + '</th>').join('') + '</tr></thead><tbody>' +
     PR.map(r => '<tr><th>' + esc(r[1]) + '</th>' + Array.from({ length: NP }, (_, i) => '<td><input class="pf-in" data-r="' + r[0] + '" data-i="' + i + '" type="text" inputmode="text" value="' + esc(PFD('dri', 'cont', r[0])[i] || '') + '"></td>').join('') + '</tr>').join('') +
-    '</tbody></table></div><div id="pfOut" style="margin-top:12px"></div></div><h2>Profile overview</h2><div class="card" id="pfOvw"></div><div class="card"><label class="btn ghost sm" style="display:inline-block">Import profile file<input type="file" id="pfImp" accept=".json,application/json" style="display:none"></label> <span class="sub" id="pfImpMsg"></span></div>';
+    '</tbody></table></div><div id="pfOut" style="margin-top:12px"></div></div><h2>Profile overview</h2><div class="card" id="pfOvw"></div><div class="card"><label class="btn ghost sm" style="display:inline-block">Import profile file<input type="file" id="pfImp" style="display:none"></label> <span class="sub" id="pfImpMsg"></span><details hidden style="margin-top:10px"><summary class="sub">Or paste text to import</summary><textarea id="pfPaste" rows="4" style="width:100%;margin-top:6px" placeholder="Paste all parts here, in order"></textarea><button class="btn sm" id="pfPasteGo">Import pasted text</button></details></div>';
   sc.insertBefore(pf, sh);
   const phaseNo = () => { const m = String((M.s || {}).phase || '').match(/\d+/); return m ? +m[0] : null; };
   const pfv = (r, i) => (PFD(pracProf(), stepProf(), r)[i] || '').toString().trim();
@@ -1270,10 +1270,11 @@ if (typeof module !== 'undefined') module.exports = MLFind;
     }).join('');
   };
   const _sp = showPf; showPf = function () { _sp(); ovw(); }; showPf();
-  pf.querySelector('#pfImp').onchange = async ev => {
-    const f = ev.target.files[0]; if (!f) return; const m = pf.querySelector('#pfImpMsg');
+  const cleanTxt = t => String(t || '').split(/\r?\n/).filter(l => !/^\s*\[ML[^\]]*\]\s*$/.test(l)).join('').replace(/^\uFEFF/, '').trim();
+  const pfLoad = txt => {
+    const m = pf.querySelector('#pfImpMsg');
     try {
-      const txt = await f.text(); ev.target.value = ''; const j = JSON.parse(txt);
+      const j = JSON.parse(cleanTxt(txt));
       if (!j || !j.pf || typeof j.pf !== 'object') throw new Error('not a MeltLab profile file');
       M.pf = M.pf || {}; let c = 0;
       Object.keys(j.pf).forEach(k => { if (!/^(dri|bkt)\.(melt|cont|ref)$/.test(k)) return; M.pf[k] = M.pf[k] || {}; Object.keys(j.pf[k]).forEach(r => { if (!PR.some(x => x[0] === r) || !Array.isArray(j.pf[k][r])) return; M.pf[k][r] = j.pf[k][r].slice(0, NP).map(v => String(v)); c += M.pf[k][r].length; }); });
@@ -1281,8 +1282,10 @@ if (typeof module !== 'undefined') module.exports = MLFind;
       const chk = Array.isArray(j.check) ? j.check : [];
       m.textContent = c + ' values loaded. They were read from photos: compare them with the screen.';
       pf.querySelector('#pfOut').insertAdjacentHTML('beforebegin', chk.length ? '<details open><summary>Please check (' + chk.length + ')</summary><ul style="margin:6px 0 10px 18px">' + chk.map(x => '<li class="sub">' + esc(x) + '</li>').join('') + '</ul></details>' : '');
-    } catch (e) { ev.target.value = ''; m.textContent = 'Could not read this file: ' + (e && e.message ? e.message : 'unknown error'); }
+    } catch (e) { m.textContent = 'Could not read this text: ' + (e && e.message ? e.message : 'unknown error') + '. Paste every part, in order, into the box.'; }
   };
+  pf.querySelector('#pfImp').onchange = async ev => { const f = ev.target.files[0]; if (!f) return; const t = await f.text(); ev.target.value = ''; pfLoad(t); };
+  pf.querySelector('#pfPasteGo').onclick = () => { const ta = pf.querySelector('#pfPaste'); pfLoad(ta.value); if (/loaded/.test(pf.querySelector('#pfImpMsg').textContent)) ta.value = ''; };
 
   sc.querySelector('#pmFile').onchange = async ev => {
     const f0 = ev.target.files[0]; if (!f0) return; const msg = sc.querySelector('#pmMsg'), rv = sc.querySelector('#pmRev'); rv.innerHTML = '';
@@ -1350,7 +1353,7 @@ if (typeof module !== 'undefined') module.exports = MLFind;
         t += '<button class="btn sm" id="spUse">Use as targets</button> <span class="sub" id="spMsg">' + ['c', 'mn', 'si'].map(k => tv(k) == null ? '' : '').join('') + '</span>';
         t += '<p class="sub" style="margin-top:8px">Targets used: the grade target if it has one, otherwise the middle of the range. If the grade only has a maximum, nothing is filled for that element: set it yourself. Advisory only.</p>';
       }
-      t += '<label class="btn ghost sm" style="display:inline-block;margin-top:10px">Import spec file<input type="file" id="spImp" accept=".json,application/json" style="display:none"></label> <span class="sub" id="spImpMsg"></span></div>';
+      t += '<label class="btn ghost sm" style="display:inline-block;margin-top:10px">Import spec file<input type="file" id="spImp" style="display:none"></label> <span class="sub" id="spImpMsg"></span><details hidden style="margin-top:10px"><summary class="sub">Or paste text to import</summary><textarea id="spPaste" rows="4" style="width:100%;margin-top:6px" placeholder="Paste all parts here, in order"></textarea><button class="btn sm" id="spPasteGo">Import pasted text</button></details></div>';
       box.innerHTML = t;
       const s = box.querySelector('#spSel'); if (s) s.onchange = () => { sel = s.value; draw(); };
       const u = box.querySelector('#spUse');
@@ -1364,18 +1367,84 @@ if (typeof module !== 'undefined') module.exports = MLFind;
         });
         box.querySelector('#spMsg').textContent = 'Filled: ' + (filled.join(', ') || 'nothing') + (skipped.length ? '. Not filled (no target or range): ' + skipped.join(', ') + '.' : '.');
       };
-      box.querySelector('#spImp').onchange = async ev => {
-        const f = ev.target.files[0]; if (!f) return; const m = box.querySelector('#spImpMsg');
+      const spLoad = txt => {
+        const m = box.querySelector('#spImpMsg');
         try {
-          const j = JSON.parse(await f.text()); ev.target.value = '';
+          const j = JSON.parse(cleanTxt(txt));
           if (!j || !Array.isArray(j.specs)) throw new Error('not a MeltLab spec file');
           M.specs = j.specs.filter(x => x && x.id && x.name).map(x => ({ id: String(x.id), name: String(x.name), std: x.std ? String(x.std) : '', c: x.c, mn: x.mn, si: x.si, p: x.p, s: x.s, cu: x.cu, cr: x.cr, ni: x.ni, n: x.n, cev: x.cev, tramp: x.tramp, target: x.target, note: x.note ? String(x.note) : '' }));
           save(); sel = ''; draw(); box.querySelector('#spImpMsg').textContent = M.specs.length + ' grades loaded. Notes on some grades say what to check.';
-        } catch (e) { ev.target.value = ''; m.textContent = 'Could not read this file: ' + (e && e.message ? e.message : 'unknown error'); }
+        } catch (e) { m.textContent = 'Could not read this text: ' + (e && e.message ? e.message : 'unknown error') + '. Paste every part, in order, into the box.'; }
       };
+      box.querySelector('#spImp').onchange = async ev => { const f = ev.target.files[0]; if (!f) return; const t = await f.text(); ev.target.value = ''; spLoad(t); };
+      box.querySelector('#spPasteGo').onclick = () => spLoad(box.querySelector('#spPaste').value);
     };
     draw();
     document.getElementById('wipeAll').addEventListener('click', () => { try { M.specs = []; } catch (e) {} });
+  })();
+
+  // ---- flux balance: lime and dolomite to reach the basicity aim (all fields start empty) ----
+  (function () {
+    const card = document.createElement('div'); card.id = 'fxCard';
+    sc.insertBefore(card, sc.querySelector('#pmClear'));
+    const FX = M.fx = M.fx || {};
+    const mats = [['dri', 'DRI (gangue)', ['SiO2', 'Al2O3', 'CaO', 'MgO']], ['lime', 'Lime', ['CaO', 'SiO2', 'MgO', 'Al2O3']], ['dol', 'Dolomite', ['CaO', 'MgO', 'SiO2', 'Al2O3']]];
+    const fld = (k, l) => '<div class="field"><label>' + esc(l) + '</label><input type="text" inputmode="decimal" data-fx="' + k + '" value="' + esc(FX[k] == null ? '' : FX[k]) + '"></div>';
+    card.innerHTML = '<h2>Lime and dolomite to add</h2><div class="card"><p class="sub" style="margin:0 0 10px">Enter your own analyses (% of each oxide). Nothing is prefilled. Stays on this device. Advisory only.</p>' +
+      '<div class="pm-grid">' + fld('driKg', 'DRI charged (kg)') + fld('siOx', 'Si oxidised from the bath (kg)') + fld('bas', 'Basicity aim, CaO / SiO2') + fld('mgo', 'MgO in slag, aim (%)') + fld('feo', 'FeO in slag (%)') + '</div>' +
+      mats.map(m => '<h3 style="margin:14px 0 6px;font-size:14px">' + m[1] + '</h3><div class="pm-grid">' + m[2].map(o => fld(m[0] + o, o + ' %')).join('') + '</div>').join('') +
+      '<div id="fxOut" style="margin-top:14px"></div></div>';
+    const val = k => n(FX[k]);
+    const calcFx = () => {
+      const out = card.querySelector('#fxOut'); const g = (m, o) => (val(m + o) || 0) / 100;
+      const need = ['driKg', 'bas', 'mgo', 'lime' + 'CaO', 'dol' + 'CaO', 'dol' + 'MgO', 'dri' + 'SiO2'];
+      const miss = need.filter(k => val(k) == null);
+      const asm = '<details style="margin-top:10px"><summary class="sub">Assumptions</summary><ul class="sub" style="margin:6px 0 0 18px"><li>Basicity is CaO / SiO2 in the slag.</li><li>Slag is the sum of CaO, SiO2, MgO and Al2O3 from DRI gangue, lime and dolomite, plus SiO2 from the silicon that oxidises (Si x 60 / 28), divided by (1 - FeO fraction).</li><li>Lime and dolomite are treated as their oxides only, with no loss on ignition or moisture. Real material is a little less effective.</li><li>No carry-over slag, no refractory or ash, and no CaO or MgO from other sources.</li><li>The two answers solve the basicity aim and the MgO aim together. Check them against your plant\'s procedures and slag results.</li></ul></details>';
+      if (miss.length) { out.innerHTML = '<p class="sub">Fill in DRI charged, the basicity aim, the MgO aim, the DRI SiO2, the lime CaO and the dolomite CaO and MgO to see the result.</p>' + asm; return; }
+      const dk = val('driKg'), so = (val('siOx') || 0) * 60 / 28, B = val('bas'), m = val('mgo') / 100, f = (val('feo') || 0) / 100;
+      const A0 = dk * g('dri', 'CaO'), B0 = dk * g('dri', 'SiO2') + so, C0 = dk * g('dri', 'MgO'), D0 = dk * g('dri', 'Al2O3');
+      const T0 = A0 + B0 + C0 + D0, k = m / (1 - f);
+      const L = { a: g('lime', 'CaO'), b: g('lime', 'SiO2'), c: g('lime', 'MgO'), d: g('lime', 'Al2O3') }, D = { a: g('dol', 'CaO'), b: g('dol', 'SiO2'), c: g('dol', 'MgO'), d: g('dol', 'Al2O3') };
+      const tL = L.a + L.b + L.c + L.d, tD = D.a + D.b + D.c + D.d;
+      const a11 = L.a - B * L.b, a12 = D.a - B * D.b, r1 = B * B0 - A0;
+      const a21 = L.c - k * tL, a22 = D.c - k * tD, r2 = k * T0 - C0;
+      const det = a11 * a22 - a12 * a21;
+      if (Math.abs(det) < 1e-9) { out.innerHTML = '<p class="sub">These inputs have no unique answer. Check the analyses.</p>' + asm; return; }
+      const lime = (r1 * a22 - a12 * r2) / det, dol = (a11 * r2 - r1 * a21) / det;
+      const slag = (T0 + lime * tL + dol * tD) / (1 - f), cao = A0 + lime * L.a + dol * D.a, sio = B0 + lime * L.b + dol * D.b, mg = C0 + lime * L.c + dol * D.c;
+      if (lime < 0 || dol < 0) { out.innerHTML = '<p class="sub">The aims are already met or cannot both be met with these materials (lime ' + Math.round(lime) + ' kg, dolomite ' + Math.round(dol) + ' kg). Check the aims and analyses.</p>' + asm; return; }
+      const r = x => Math.round(x);
+      out.innerHTML = '<div class="pm-rv"><div><span>Lime to add</span><b>' + r(lime) + ' kg</b></div><div><span>Dolomite to add</span><b>' + r(dol) + ' kg</b></div><div><span>Slag, estimated</span><b>' + r(slag) + ' kg</b></div><div><span>Basicity (check)</span><b>' + (cao / sio).toFixed(2) + '</b></div><div><span>MgO in slag (check)</span><b>' + (mg / slag * 100).toFixed(1) + ' %</b></div></div>' + asm;
+    };
+    card.addEventListener('input', e => {
+      const t = e.target; if (!t.dataset || !t.dataset.fx) return; (M.fx = M.fx || {})[t.dataset.fx] = t.value; Object.keys(M.fx).forEach(x => { FX[x] = M.fx[x]; });
+      if (t.dataset.fx === 'bas') { (M.k = M.k || {}).basAim = t.value; const o = sc.querySelector('[data-k="basAim"]'); if (o) o.value = t.value; }
+      save(); calcFx();
+    });
+    const b0 = sc.querySelector('[data-k="basAim"]'); if (b0 && b0.value && !FX.bas) { FX.bas = b0.value; card.querySelector('[data-fx="bas"]').value = b0.value; }
+    calcFx();
+  })();
+
+  // ---- built-in grades: encrypted file, only if the site has one; passcode prompt, not stored ----
+  (async function () {
+    let ok = false; try { const r = await fetch('./specs.enc.json', { cache: 'no-store' }); if (!r.ok) return; var env = await r.json(); ok = !!(env && env.ct && env.salt && env.iv); } catch (e) { return; }
+    if (!ok) return; const box = document.getElementById('specBox'); if (!box) return;
+    const b64 = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
+    const wrap = document.createElement('div'); wrap.className = 'card'; wrap.style.marginTop = '10px';
+    wrap.innerHTML = '<p class="sub" style="margin:0 0 8px">Built-in grades are locked. Enter your passcode once. It is not stored. The grades are saved on this device only.</p><input type="password" id="spPass" autocomplete="off" style="width:100%"><button class="btn sm" id="spUnlock" style="margin-top:8px">Unlock grades</button> <span class="sub" id="spUnMsg"></span>';
+    box.appendChild(wrap);
+    wrap.querySelector('#spUnlock').onclick = async () => {
+      const m = wrap.querySelector('#spUnMsg'); m.textContent = 'Unlocking...';
+      try {
+        const pw = new TextEncoder().encode(wrap.querySelector('#spPass').value);
+        const km = await crypto.subtle.importKey('raw', pw, 'PBKDF2', false, ['deriveKey']);
+        const key = await crypto.subtle.deriveKey({ name: 'PBKDF2', salt: b64(env.salt), iterations: env.iter || 250000, hash: 'SHA-256' }, km, { name: 'AES-GCM', length: 256 }, false, ['decrypt']);
+        const pt = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: b64(env.iv) }, key, b64(env.ct));
+        const j = JSON.parse(new TextDecoder().decode(pt)); if (!Array.isArray(j.specs)) throw new Error('bad');
+        M.specs = j.specs; save(); wrap.querySelector('#spPass').value = ''; m.textContent = j.specs.length + ' grades unlocked. Opening the list...'; setTimeout(() => location.reload(), 900);
+        const sl = box.querySelector('#spSel'); if (!sl) { const st = document.getElementById('specBox'); }
+      } catch (e) { m.textContent = 'Wrong passcode or damaged file.'; }
+    };
   })();
   // entry points: Settings and Heat screen
   const mk = () => { const b = document.createElement('button'); b.className = 'btn ghost sm'; b.textContent = 'Plant model (your workbook, on this device)'; b.onclick = () => go('plant'); return b; };
@@ -1385,7 +1454,7 @@ if (typeof module !== 'undefined') module.exports = MLFind;
 
 /* ---- Self-update: check on open, focus, return, reconnect and every 5 minutes; reload at a safe moment ---- */
 (function () {
-  const VER = '3.14';
+  const VER = '3.15';
   try {
     const seen = localStorage.getItem('meltlab_ver_seen');
     if (seen && seen !== VER) {
