@@ -191,6 +191,14 @@ html[data-theme=dark] .tile .v,html[data-theme=dark] .hero .big{color:#fff}
 .btn,.seg button,.pf-tabs .btn{min-height:48px}
 #chargeChoice{margin-bottom:12px}
 .ux-msg{margin:10px 2px;padding:10px 12px;border-radius:12px;border:1px solid #e0a43a;color:#f0c46a;font-size:14px}.ux-bad{outline:2px solid #e0a43a}
+.screen{padding-bottom:210px!important}
+.ux-empty>*:not(header):not(.ux-emptycard){display:none!important}
+.screen:not(.ux-empty) .ux-emptycard{display:none}
+.ux-jump{display:flex;gap:8px;margin:0 4px 8px}.ux-jump .btn{flex:1}
+.ux-danger{color:#ff8a80!important;border-color:#7a3b37!important}
+.ux-note{margin:6px 4px 0;text-align:center}
+.tab{font-size:13px!important}.th{min-width:48px;min-height:48px}
+.imp-ck,.lab-ck,label:has(>input[type=checkbox]){min-height:48px;display:flex;align-items:center;gap:10px}
 </style>
 </head>
 <body>
@@ -1529,9 +1537,46 @@ if (typeof module !== 'undefined') module.exports = MLFind;
   document.addEventListener('input', run); document.addEventListener('click', () => setTimeout(run, 50)); setTimeout(run, 300);
 })();
 
+/* ---- v3.18: one gate to advice, honest empty states, calmer Advice bottom ---- */
+(function () {
+  const SK = 'meltlab_gate'; let on = false; try { on = sessionStorage.getItem(SK) === '1'; } catch (e) {}
+  const adv = document.getElementById('s_advice'), why = document.getElementById('s_why');
+  const card = t => { const d = document.createElement('div'); d.className = 'card ux-emptycard'; d.innerHTML = '<b>No heat entered yet.</b><p class="sub" style="margin:6px 0 12px">Enter a heat to get advice. Nothing here is based on the textbook defaults until you do.</p><button class="btn" data-go="heat">Enter a heat</button>'; return d; };
+  [adv, why].forEach(s => { if (!s) return; const h = s.querySelector('header'); h.insertAdjacentElement('afterend', card()); });
+  const paint = () => { [adv, why].forEach(s => s && s.classList.toggle('ux-empty', !on)); };
+  paint();
+  document.addEventListener('click', e => {
+    const b = e.target.closest('#s_heat .btn[data-go="advice"]');
+    if (b) { on = true; try { sessionStorage.setItem(SK, '1'); } catch (x) {} paint(); }
+  }, true);
+  const wipe = document.getElementById('wipeAll'); if (wipe) wipe.addEventListener('click', () => setTimeout(() => { on = false; try { sessionStorage.removeItem(SK); } catch (x) {} paint(); }, 0));
+  // note under Get advice
+  const gb = document.querySelector('#s_heat .btn[data-go="advice"]');
+  if (gb) { const n = document.createElement('p'); n.className = 'sub ux-note'; n.textContent = 'Advice is not saved to History until you tap Log this heat.'; gb.insertAdjacentElement('afterend', n); }
+  // advice bottom: Log primary, rest in More actions
+  const log = document.getElementById('logBtn'), cp = document.getElementById('copyBtn');
+  if (log && adv) {
+    const more = [...log.parentNode.children].filter(x => x !== log && (x === cp || x.matches('.btn[data-go="heat"]') || x.textContent.indexOf('Plant model') === 0));
+    const d = document.createElement('details'); d.className = 'ux-fold'; d.innerHTML = '<summary>More actions</summary><div class="ux-body"></div>';
+    log.insertAdjacentElement('afterend', d); more.forEach(x => d.querySelector('.ux-body').appendChild(x));
+  }
+  // plant model back button
+  const ph = document.querySelector('#s_plant header');
+  if (ph) { const b = document.createElement('button'); b.className = 'btn ghost sm'; b.textContent = '\u2039 Back to Heat'; b.setAttribute('data-go', 'heat'); ph.insertAdjacentElement('afterend', b); }
+  // settings: jump links + autosave note
+  const st = document.getElementById('s_settings'), sh = st && st.querySelector('header');
+  if (sh) {
+    const n = document.createElement('p'); n.className = 'sub'; n.style.margin = '0 4px 8px'; n.textContent = 'Changes save automatically on this device.';
+    const j = document.createElement('div'); j.className = 'ux-jump';
+    [['Constants', 'Constants (editable)'], ['App and data', 'App']].forEach(([t, h]) => { const hh = [...st.querySelectorAll('h2')].find(x => x.textContent.trim() === h); if (!hh) return; const a = document.createElement('button'); a.className = 'btn ghost sm'; a.textContent = t; a.onclick = () => hh.scrollIntoView({ behavior: 'auto', block: 'start' }); j.appendChild(a); });
+    sh.insertAdjacentElement('afterend', j); j.insertAdjacentElement('afterend', n);
+    const w = document.getElementById('wipeAll'); if (w) w.classList.add('ux-danger'); const r = document.getElementById('resetConst'); if (r) r.classList.add('ux-danger');
+  }
+})();
+
 /* ---- Self-update: check on open, focus, return, reconnect and every 5 minutes; reload at a safe moment ---- */
 (function () {
-  const VER = '3.17';
+  const VER = '3.18';
   try {
     const seen = localStorage.getItem('meltlab_ver_seen');
     if (seen && seen !== VER) {
