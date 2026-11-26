@@ -304,7 +304,7 @@ body.paused #uxClock,body.paused #uxSmp,body.paused #uxProf{opacity:.55}body.pau
 .screen{padding-bottom:calc(210px + var(--toast-h,0px))!important}.ux-undo{bottom:166px}
 .ux-undo{top:max(12px,env(safe-area-inset-top));bottom:auto!important}.screen{padding-bottom:210px!important}
 .ux-undo{top:auto!important;bottom:164px!important;padding:4px 6px 4px 14px;min-height:0;font-size:14px}.ux-undo button{min-height:40px;padding:0 16px}
-#uxXset .field{display:block;margin:8px 0}#uxXset input{display:block;width:100%;box-sizing:border-box;margin-top:6px;min-height:52px;padding:0 16px;border-radius:16px;border:1px solid rgba(255,255,255,.18);background:rgba(0,0,0,.28);color:#fff;font-size:18px;font-family:inherit}
+#uxXset,#uxBags .field{display:block;margin:8px 0}#uxXset,#uxBags input{display:block;width:100%;box-sizing:border-box;margin-top:6px;min-height:52px;padding:0 16px;border-radius:16px;border:1px solid rgba(255,255,255,.18);background:rgba(0,0,0,.28);color:#fff;font-size:18px;font-family:inherit}
 </style>
 </head>
 <body>
@@ -668,7 +668,7 @@ function stepsData(m, pr) {
     it.push([Math.min(pr.tMelt * 0.3, pr.tMelt), 'Slag formers', r0(m.limeTotal) + ' kg lime and ' + r0(m.doloTotal) + ' kg dolomite, added early with the charge.']);
     if (m.o2Rem > 0) it.push([pr.o2Start, 'Oxygen and carbon injection', r0(m.o2Rem) + ' Nm3 O2 at ' + r0(pr.o2Flow) + ' Nm3/h over ' + m.jets + ' jet' + (m.jets > 1 ? 's' : '') + ', C injection ' + r1(pr.cFlow) + ' kg/min.']);
     if (m.dT > 0) it.push([pr.tMelt, 'Superheat', 'Bring the bath from ' + r0(m.tNow) + ' to ' + r0(m.tAim) + ' C, holding foamy slag.']);
-    it.push([pr.tEnd, 'Tap', 'Alloys: ' + r0(m.feMn) + ' kg FeMn' + (m.siNeed > 0 ? ', ' + r0(m.feSi) + ' kg FeSi' : '') + '. Aim ' + r0(m.tAim) + ' C.']);
+    it.push([pr.tEnd, 'Tap', 'Alloys: ' + r0(m.feMn) + ' kg FeMn' + (window.mlBags ? window.mlBags(m.feMn, 'feMn') : '') + (m.siNeed > 0 ? ', ' + r0(m.feSi) + ' kg FeSi' + (window.mlBags ? window.mlBags(m.feSi, 'feSi') : '') : '') + '. Aim ' + r0(m.tAim) + ' C.']);
     it.sort((a, b) => a[0] - b[0]);
     return it;
 }
@@ -757,7 +757,7 @@ function render() {
     R.push(reco('Slag formers', r0(m.limeTotal) + ' kg lime + ' + r0(m.doloTotal) + ' kg dolo (heat totals)',
         'SiO2 = DRI gangue (' + r0(m.driTotal) + ' t x ' + konst('driGangue') + '% = ' + r0(m.driTotal * konst('driGangue') * 10) + ' kg) + oxidized Si (' + r0(m.si * 10 * m.total * 60 / 28) + ' kg) = ' + r0(m.sio2) + ' kg. Lime = SiO2 x B2 ' + konst('basicity') + ' / ' + konst('limeCao') + ' = ' + r0(m.limeTotal) + ' kg. Dolo = ' + konst('doloKgPerT') + ' kg/t x ' + r0(m.total) + ' t.',
         'DRI carries its gangue straight into the slag, so DRI heats need much more lime than scrap heats. Dolomite feeds the MgO that protects the bricks; feed both early with the DRI, not at the end.'));
-    R.push(reco('Alloys at tap', r0(m.feMn) + ' kg FeMn' + (m.siNeed > 0 ? ' + ' + r0(m.feSi) + ' kg FeSi' : ''),
+    R.push(reco('Alloys at tap', r0(m.feMn) + ' kg FeMn' + (window.mlBags ? window.mlBags(m.feMn, 'feMn') : '') + (m.siNeed > 0 ? ' + ' + r0(m.feSi) + ' kg FeSi' + (window.mlBags ? window.mlBags(m.feSi, 'feSi') : '') : ''),
         'Mn = (' + r2(numOr('tgtMn', 0.6)) + ' - ' + r2(m.mn) + ') x 10 x ' + r0(m.total) + ' = ' + r0(m.mnNeed) + ' kg; FeMn = ' + r0(m.mnNeed) + ' / (' + konst('feMnGrade') + ' x ' + konst('feMnRecovery') + ')' + (m.siNeed > 0 ? '. Si = (' + r2(numOr('tgtSi', 0.2)) + ' - ' + r2(m.si) + ') x 10 x ' + r0(m.total) + ' = ' + r0(m.siNeed) + ' kg; FeSi = ' + r0(m.siNeed) + ' / (' + konst('feSiGrade') + ' x ' + konst('feSiRecovery') + ')' : '') + '.',
         'Recoveries shift with slag oxidation and tapping practice; weigh back a few heats and set your own.'));
     document.getElementById('recos').innerHTML = R.join('');
@@ -2276,7 +2276,7 @@ const MLRef = (function () {
     const rows2 = [['Oxygen', f0(m.o2Rem) + ' Nm3 total at ' + f0(pr.o2Flow) + ' Nm3/h'], ['Jets', m.jets + ' running, ' + f0(m.perJet) + ' Nm3/h each'], ['Carbon injection', f0(pr.cFlow) + ' kg/min'], ['Carbon', (m.c0 === null ? 'no reading' : (Math.round(m.c0 * 100) / 100) + '%') + ' to ' + (Math.round(m.ct * 100) / 100) + '%']];
     const rows3 = [['Foamy slag', 'hold from the start of oxygen until tap'], ['Basicity aim (CaO/SiO2)', aim !== null ? String(aim) : 'see Settings'], ['FeO and foam', 'no target set in the app, follow the plant practice']];
     const rows4 = [['Bath now', f0(m.tNow) + ' C'], ['Liquidus', f0(m.tLiq) + ' C'], ['Tap aim', f0(m.tAim) + ' C (' + (m.dT > 0 ? f0(m.dT) + ' C to gain' : 'reached') + ')']];
-    const rows5 = [['FeMn', f0(m.feMn) + ' kg'], ['FeSi', (m.siNeed > 0 ? f0(m.feSi) : 0) + ' kg'], ['Energy', f0(kwhT) + ' kWh/t'], ['Tap temperature aim', f0(m.tAim) + ' C']];
+    const rows5 = [['FeMn', f0(m.feMn) + ' kg' + (window.mlBags ? window.mlBags(m.feMn, 'feMn') : '')], ['FeSi', (m.siNeed > 0 ? f0(m.feSi) : 0) + ' kg' + (m.siNeed > 0 && window.mlBags ? window.mlBags(m.feSi, 'feSi') : '')], ['Energy', f0(kwhT) + ' kWh/t'], ['Tap temperature aim', f0(m.tAim) + ' C']];
     const X = (typeof MLRef !== 'undefined') ? MLRef.extra(m, pr) : null; if (X) { X.p1.forEach(r => rows1.push(r)); X.p2.forEach(r => rows2.push(r)); X.p3.forEach(r => rows3.push(r)); X.p4.forEach(r => rows4.push(r)); X.pre.forEach(r => rows1.unshift(r)); }
     card.innerHTML = '<div class="imp-t">Whole heat, start to tap</div><div class="pf-sum"><div><span>Tap in</span><b>' + (typeof mmss === 'function' ? mmss(tE) : f0(tE) + ' min') + '</b></div><div><span>Tap at</span><b>' + tm(tE) + '</b></div><div><span>Energy</span><b>' + f0(kwhT) + ' kWh/t</b></div></div>'
       + (tE <= 10 ? '<div class="pf-tapw">' + (tE <= 0.5 ? 'Tap window is open' : 'Tap window opens in ' + (typeof mmss === 'function' ? mmss(tE) : f0(tE) + ' min')) + '</div>' : '') + ph(1, 'Charge and melt', A, tM, rows1) + ph(2, 'Oxygen and carbon', o2s, tE, rows2) + ph(3, 'Slag', o2s, tE, rows3) + ph(4, 'Temperature', tM, tE, rows4) + ph(5, 'Tap', tE, null, rows5, 'tap')
@@ -2409,9 +2409,22 @@ const MLRef = (function () {
   note();
 })();
 
+// v3.38: alloys in bags
+(function () {
+  const $ = id => document.getElementById(id), K = 'meltlab_bags'; let B = {}; try { B = JSON.parse(localStorage.getItem(K) || '{}') || {}; } catch (e) {}
+  window.mlBags = (kg, key) => { const w = parseFloat(B[key]); if (!w || !(kg > 0)) return ''; const n = kg / w, r = Math.round(n * 2) / 2; return ' (about ' + (r % 1 ? r.toFixed(1) : r) + ' bag' + (r === 1 ? '' : 's') + ' of ' + w + ' kg)'; };
+  const st = $('s_settings'); if (!st) return;
+  const sc = document.createElement('div'); sc.className = 'card'; sc.id = 'uxBags';
+  sc.innerHTML = '<h3 style="margin:0 0 6px">Alloy bags</h3><p class="sub" style="margin:0 0 10px">Enter the weight of one bag and Advice shows alloys in bags next to kg, rounded to half a bag. Leave empty to show kg only. Saved on this device.</p><label class="field">FeMn bag weight (kg)<input id="bgM" type="number" inputmode="decimal" min="1" step="any"></label><label class="field">FeSi bag weight (kg)<input id="bgS" type="number" inputmode="decimal" min="1" step="any"></label>';
+  const x = document.getElementById('uxXset'); (x || st.querySelector('header') || st.firstElementChild).insertAdjacentElement('afterend', sc);
+  const a = sc.querySelector('#bgM'), b = sc.querySelector('#bgS'); a.value = B.feMn || ''; b.value = B.feSi || '';
+  const sv = () => { B.feMn = parseFloat(a.value) > 0 ? parseFloat(a.value) : ''; B.feSi = parseFloat(b.value) > 0 ? parseFloat(b.value) : ''; try { localStorage.setItem(K, JSON.stringify(B)); } catch (e) {} const f = $('f_charged'); if (f) f.dispatchEvent(new Event('input', { bubbles: true })); };
+  a.addEventListener('change', sv); b.addEventListener('change', sv);
+})();
+
 /* ---- Self-update: check on open, focus, return, reconnect and every 5 minutes; reload at a safe moment ---- */
 (function () {
-  const VER = '3.37';
+  const VER = '3.38';
   try {
     const seen = localStorage.getItem('meltlab_ver_seen');
     if (seen && seen !== VER) {
