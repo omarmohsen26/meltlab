@@ -310,6 +310,20 @@ body.paused #uxClock,body.paused #uxSmp,body.paused #uxProf{opacity:.55}body.pau
 .ux-sync{position:fixed;top:4px;right:8px;z-index:40;font-size:11px;padding:2px 8px;border-radius:999px;background:rgba(0,0,0,.45);color:#aab;pointer-events:none}.ux-sync.off{background:#FFB454;color:#1a1305;font-weight:700}
 html.night{filter:sepia(1) saturate(4) hue-rotate(-35deg) brightness(.7)}#uxPrefs,#uxPrefs .field{display:block}#uxPrefs .ck-row{display:flex}#uxPrefs input[type=number]{display:block;width:100%;box-sizing:border-box;margin-top:6px;min-height:52px;padding:0 16px;border-radius:16px;border:1px solid rgba(255,255,255,.18);background:rgba(0,0,0,.28);color:#fff;font-size:18px;font-family:inherit}#uxPrefs input[type=checkbox]{width:28px;height:28px}
 .ux-chk .chk{display:flex;align-items:center;gap:8px}.ux-chk .chk>span{flex:1;display:flex;align-items:center}.ux-chk .chk .btn{flex:0 0 48px!important;min-width:48px;width:48px;padding:0}.ux-chk .chk input[type=checkbox]{flex:0 0 24px;margin:0 10px 0 0}
+html.glare{filter:contrast(1.3) brightness(1.3)}html.glare.night{filter:sepia(1) saturate(4) hue-rotate(-35deg) contrast(1.3) brightness(.9)}
+.ux-based.stale .ck-h::before,.smp-n.over::before{content:"\25B2  "}.ux-xchk .ck-h::before{content:"\25B2  "}.ux-pz.on .ck-h::before{content:"\25A0  "}
+@media print{body.printing>*:not(#appRoot):not(main){display:none!important}body.printing .nav,body.printing nav,body.printing .btn,body.printing .ux-sync,body.printing .ux-undo{display:none!important}body.printing{background:#fff!important;color:#000!important}body.printing .card{background:#fff!important;color:#000!important;border:1px solid #888!important;box-shadow:none!important;break-inside:avoid}body.printing .screen{display:none!important}body.printing #s_advice{display:block!important}html{filter:none!important}}
+
+.screen{padding-bottom:270px!important}html{scroll-padding-bottom:220px}
+.ux-based .stl{background:rgba(255,107,107,.14);border-radius:10px}.ux-based.stale .ck-sub{color:#ffb0b0}
+.smp-n:not(.over)::before{content:"\2713  "}
+body.paused #uxSmp::after{content:"Frozen while paused";display:block;color:#FFB454;font-weight:700;margin-top:6px}
+.ux-sync{transition:opacity .6s}.ux-sync.fade{opacity:0}
+#uxSmp .ck-sub,#uxSmp .smp-n{white-space:normal;overflow-wrap:anywhere}.rep-photo .btn,.rep-photo button,#s_heat .rep-photo button{min-height:52px;white-space:normal;line-height:1.2;padding:8px 16px}
+#uxPrefs .ck-row input[type=checkbox],.ux-chk .chk input[type=checkbox]{appearance:none;-webkit-appearance:none;width:52px;height:30px;border-radius:999px;background:#555;position:relative;flex:0 0 52px;border:0}#uxPrefs .ck-row input[type=checkbox]::after{content:"";position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:50%;background:#fff;transition:left .15s}#uxPrefs .ck-row input[type=checkbox]:checked{background:#2e9d57}#uxPrefs .ck-row input[type=checkbox]:checked::after{left:25px}
+.ux-chk .chk input[type=checkbox]{width:28px;height:28px;border-radius:8px;flex:0 0 28px;border:2px solid #aaa;background:transparent}.ux-chk .chk input[type=checkbox]:checked{background:#2e9d57;border-color:#2e9d57}.ux-chk .chk input[type=checkbox]:checked::after{content:"\2713";color:#fff;position:absolute;left:5px;top:-1px;font-size:20px}
+#s_settings .card{margin-bottom:12px}.ux-chk .chk .btn{flex:0 0 auto!important;width:auto!important;min-width:84px;padding:0 12px}
+html.night{filter:sepia(1) saturate(3) hue-rotate(-35deg) brightness(.9) contrast(1.15)}
 </style>
 </head>
 <body>
@@ -2252,6 +2266,7 @@ const MLRef = (function () {
   setInterval(() => { if (!S.t0) return; const t = $('ckClk'); if (t) t.textContent = '(' + mm(Date.now() - S.t0) + ')'; }, 1000);
   setInterval(() => { if (S.t0) { applyEst(); if (!card.contains(document.activeElement)) draw(); } }, 20000);
   draw(); if (S.t0) applyEst();
+  window.__mlToast = undo;
   window.__mlClock = { get: () => S, est: estimate };
   window.__mlUndo = { smp: v => { window.__mlSmp && window.__mlSmp.restore(v); }, bk: v => { S.baskets = v; save(); applyEst(); draw(); }, jet: v => { const e = $('f_jetsRunning'); if (e) { e.value = v; fire(e); draw(); } } };
 })();
@@ -2361,14 +2376,14 @@ const MLRef = (function () {
   if (pz) shift(Date.now() - pz.last);
   function draw() {
     const run = clk() && clk().t0;
-    if (pz) card.innerHTML = '<div class="ck-h">Paused</div><div class="pz-n" id="pzN">Paused ' + mm(Date.now() - pz.at) + '</div><div class="ck-sub">All heat and sample timers are frozen and the estimates hold. Resume when power is back.</div><button class="btn sm" id="pzGo">Resume</button>';
+    if (pz) card.innerHTML = '<div class="ck-h">' + (pz.reason === 'maint' ? 'Maintenance' : 'Paused') + '</div><div class="pz-n" id="pzN">' + mm(Date.now() - pz.at) + '</div><div class="ck-sub">All heat and sample timers are frozen and the estimates hold. Resume when power is back.</div><button class="btn sm" id="pzGo">Resume</button>';
     else card.innerHTML = '<div class="ck-row"><span>Power cut or hold</span><button class="btn ghost sm" id="pzGo"' + (run ? '' : ' disabled') + '>Pause all timers</button></div><div class="ck-row"><span>Maintenance stop <span class="ck-basis">marks this heat as interrupted</span></span><button class="btn ghost sm" id="pzMt"' + (run ? '' : ' disabled') + '>Stop for maintenance</button></div>';
-    card.classList.toggle('on', !!pz); document.body.classList.toggle('paused', !!pz); window.__mlPaused = !!pz;
+    card.classList.toggle('on', !!pz); document.body.classList.toggle('paused', !!pz); window.__mlPaused = !!pz; { const ga = document.querySelector('#s_heat .btn[data-go=advice]'); if (ga) { if (!ga.dataset.o) ga.dataset.o = ga.textContent; ga.textContent = pz ? 'Paused, resume first' : ga.dataset.o; } }
     const b = card.querySelector('#pzGo'); b.onclick = () => { if (pz) { shift(Date.now() - pz.last); if (pz.reason === 'maint' && window.__mlLogAdd) window.__mlLogAdd('Heat interrupted for maintenance, ' + Math.max(1, Math.round((Date.now() - pz.at) / 60000)) + ' min', { k: 'note' }); pz = null; } else { pz = { at: Date.now(), last: Date.now() }; } wp(); draw(); };
     const mt = card.querySelector('#pzMt'); if (mt) mt.onclick = () => { pz = { at: Date.now(), last: Date.now(), reason: 'maint' }; wp(); draw(); };
   }
   const mm = ms => { const s = Math.round(ms / 1000); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
-  setInterval(() => { if (pz) { const n = Date.now(); const age = (n - pz.at) / 60000; card.classList.toggle('old', age >= PZ.a); card.classList.toggle('older', age >= PZ.b); const rem = age >= PZ.b && (!pz.r || n - pz.r >= 30 * 60000); if (rem) { pz.r = n; try { if (navigator.vibrate) navigator.vibrate([120]); } catch (e) {} } const hd = card.querySelector('.ck-h'); if (hd) hd.textContent = (pz.reason === 'maint' ? 'MAINTENANCE ' : 'PAUSED ') + Math.floor(age) + ' min' + (age >= PZ.b ? ', long pause' : age >= PZ.a ? ', still paused' : ''); shift(n - pz.last); pz.last = n; wp(); const e = $('pzN'); if (e) e.textContent = 'Paused ' + mm(n - pz.at); } else { const b = card.querySelector('#pzGo'), m2 = card.querySelector('#pzMt'); const run = clk() && clk().t0; if (b && b.disabled === !!run) b.disabled = !run; if (m2 && m2.disabled === !!run) m2.disabled = !run; } }, 500);
+  setInterval(() => { if (pz) { const n = Date.now(); const age = (n - pz.at) / 60000; card.classList.toggle('old', age >= PZ.a); card.classList.toggle('older', age >= PZ.b); const rem = age >= PZ.b && (!pz.r || n - pz.r >= 30 * 60000); if (rem) { pz.r = n; try { if (navigator.vibrate) navigator.vibrate([120]); } catch (e) {} } const hd = card.querySelector('.ck-h'); if (hd) hd.textContent = (pz.reason === 'maint' ? 'Maintenance' : 'Paused') + (age >= PZ.b ? ', long hold' : age >= PZ.a ? ', still on hold' : ''); shift(n - pz.last); pz.last = n; wp(); const e = $('pzN'); if (e) e.textContent = mm(n - pz.at); } else { const b = card.querySelector('#pzGo'), m2 = card.querySelector('#pzMt'); const run = clk() && clk().t0; if (b && b.disabled === !!run) b.disabled = !run; if (m2 && m2.disabled === !!run) m2.disabled = !run; } }, 500);
   draw();
 })();
 
@@ -2439,7 +2454,11 @@ const MLRef = (function () {
     const row = document.createElement('div'); row.className = 'ux-step';
     row.innerHTML = '<button type="button" class="btn ghost sm" data-d="-1" aria-label="Down ' + step + '">- ' + step + '</button><span>' + unit + '</span><button type="button" class="btn ghost sm" data-d="1" aria-label="Up ' + step + '">+ ' + step + '</button>';
     const anchor = el.closest('.field') || el.parentElement; anchor.insertAdjacentElement('afterend', row);
-    row.addEventListener('click', ev => { const b = ev.target.closest('button'); if (!b) return; const cur = num(el); if (isNaN(cur)) { el.focus(); return; } el.value = rnd(cur + (+b.dataset.d) * step, dec); last[el.id] = { v: num(el), at: Date.now() }; try { if (navigator.vibrate) navigator.vibrate(8); } catch (e) {} fire(el); if (window.__mlBased) window.__mlBased.stamp(); });
+    const go = d => { const cur = num(el); if (isNaN(cur)) { el.focus(); return false; } el.value = rnd(cur + d * step, dec); last[el.id] = { v: num(el), at: Date.now() }; try { if (navigator.vibrate) navigator.vibrate(8); } catch (e) {} fire(el); if (window.__mlBased) window.__mlBased.stamp(); return true; };
+    let tm = null, ti = null, fired = false; const stop = () => { clearTimeout(tm); clearInterval(ti); tm = ti = null; };
+    row.addEventListener('pointerdown', ev => { const b = ev.target.closest('button'); if (!b) return; ev.preventDefault(); const d = +b.dataset.d; fired = true; if (!go(d)) return; tm = setTimeout(() => { ti = setInterval(() => go(d), 140); }, 450); });
+    ['pointerup', 'pointerleave', 'pointercancel'].forEach(n => row.addEventListener(n, stop));
+    row.addEventListener('click', ev => { const b = ev.target.closest('button'); if (!b) return; if (fired) { fired = false; return; } go(+b.dataset.d); });
   }
   const last = {};
   stepper(T, 5, 0, 'C'); stepper(C, 0.01, 2, '% C');
@@ -2453,6 +2472,7 @@ const MLRef = (function () {
       if (isNaN(v)) return;
       let msg = '';
       if (L && L.at && L.v === v && now - L.at < 60000) msg = 'You entered the same value twice within a minute. Keep it?';
+      else if (!isNaN(p) && p > 0 && v > 0 && (v / p >= 5 || p / v >= 5)) msg = 'That is about ' + (v > p ? Math.round(v / p) : '1/' + Math.round(p / v)) + ' times the last value (' + p + '). Keep ' + v + '?';
       else if (!isNaN(p) && Math.abs(v - p) > JUMP[el.id]) msg = 'This is a big change from ' + p + '. Keep ' + v + '?';
       if (msg && !confirm(msg)) { el.value = isNaN(p) ? '' : p; fire(el); return; }
       last[el.id] = { v, at: now };
@@ -2478,7 +2498,7 @@ const MLRef = (function () {
   const num = e => parseFloat(String(e.value).replace(',', '.'));
   const clock = ms => new Date(ms).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   const sv = () => { try { localStorage.setItem(RK, JSON.stringify(R)); } catch (e) {} };
-  function stamp() { if (T && !isNaN(num(T))) { if (!R.t || R.t.v !== num(T)) R.t = { v: num(T), at: Date.now() }; } if (C && !isNaN(num(C))) { if (!R.c || R.c.v !== num(C)) R.c = { v: num(C), at: Date.now() }; } sv(); draw(); }
+  function stamp() { if (T && !isNaN(num(T))) { if (!R.t || R.t.v !== num(T)) R.t = { v: num(T), s: String(T.value).trim(), at: Date.now() }; } if (C && !isNaN(num(C))) { if (!R.c || R.c.v !== num(C)) R.c = { v: num(C), s: String(C.value).trim(), at: Date.now() }; } sv(); draw(); }
   if (T) T.addEventListener('change', stamp); if (C) C.addEventListener('change', stamp);
   const based = document.createElement('div'); based.className = 'card ux-based'; based.id = 'uxBased';
   if (adv) { const h = adv.querySelector('header'); (h || adv.firstElementChild).insertAdjacentElement('afterend', based); }
@@ -2486,8 +2506,10 @@ const MLRef = (function () {
     if (!adv) return; const now = Date.now(); const age = r => r ? Math.round((now - r.at) / 60000) : null;
     const at = age(R.t), ac = age(R.c), mx = Math.max(at === null ? -1 : at, ac === null ? -1 : ac);
     if (!R.t && !R.c) { based.style.display = 'none'; return; } based.style.display = '';
-    const stale = mx >= BS.stale; based.classList.toggle('stale', stale);
-    based.innerHTML = '<div class="ck-h">Advice is based on</div><div class="ck-row"><span>Temperature ' + (R.t ? R.t.v + ' C' : 'not entered') + '</span><span class="ck-basis">' + (R.t ? clock(R.t.at) + ', ' + at + ' min ago' : '') + '</span></div><div class="ck-row"><span>Carbon ' + (R.c ? R.c.v + ' %' : 'not entered') + '</span><span class="ck-basis">' + (R.c ? clock(R.c.at) + ', ' + ac + ' min ago' : '') + '</span></div><div class="ck-sub">' + (stale ? 'OUT OF DATE: these readings are over ' + BS.stale + ' min old. Take a new sample and enter it.' : 'Valid until you enter a new reading or ' + BS.stale + ' min pass.') + '</div>';
+    const st1 = at !== null && at >= BS.stale, st2 = ac !== null && ac >= BS.stale, stale = st1 || st2; based.classList.toggle('stale', stale);
+    const tv = R.t ? (R.t.s || R.t.v) : '', cv = R.c ? (R.c.s || R.c.v) : '';
+    const names = [st1 ? 'Temperature is ' + at + ' min old' : '', st2 ? 'Carbon is ' + ac + ' min old' : ''].filter(Boolean).join('. ');
+    based.innerHTML = '<div class="ck-h">Advice is based on</div><div class="ck-row' + (st1 ? ' stl' : '') + '"><span>' + (st1 ? '\u25B2 ' : '') + 'Temperature ' + (R.t ? tv + ' C' : 'not entered') + '</span><span class="ck-basis">' + (R.t ? clock(R.t.at) + ', ' + at + ' min ago' : '') + '</span></div><div class="ck-row' + (st2 ? ' stl' : '') + '"><span>' + (st2 ? '\u25B2 ' : '') + 'Carbon ' + (R.c ? cv + ' %' : 'not entered') + '</span><span class="ck-basis">' + (R.c ? clock(R.c.at) + ', ' + ac + ' min ago' : '') + '</span></div><div class="ck-sub">' + (stale ? 'OUT OF DATE. ' + names + '. Take a new sample and enter it.' : '\u2713 Valid until you enter a new reading or ' + BS.stale + ' min pass.') + '</div>';
   }
   setInterval(draw, 20000); draw();
   // pre-tap checklist (user-defined items)
@@ -2497,16 +2519,16 @@ const MLRef = (function () {
     const cl = document.createElement('div'); cl.className = 'card ux-chk'; cl.id = 'uxChk'; based.insertAdjacentElement('afterend', cl);
     const sv2 = () => { try { localStorage.setItem(CK, JSON.stringify(L)); } catch (e) {} };
     function dc() {
-      cl.innerHTML = '<div class="ck-h">Pre-tap checklist (your items)</div>' + (L.items.length ? L.items.map((t, i) => '<label class="ck-row chk"><span><input type="checkbox" data-i="' + i + '"' + (L.done[i] ? ' checked' : '') + '> ' + t.replace(/[<>&]/g, '') + '</span><button type="button" class="btn ghost sm" data-r="' + i + '" aria-label="Remove item">x</button></label>').join('') : '<div class="ck-sub">Add the checks your plant uses before tap. The app has none of its own.</div>') + '<div class="ck-row"><input id="chkNew" type="text" placeholder="New item" maxlength="60"><button type="button" class="btn sm" id="chkAdd">Add</button></div>' + (L.items.length ? '<div class="ck-sub">' + L.items.filter((_, i) => L.done[i]).length + ' of ' + L.items.length + ' done</div>' : '');
+      cl.innerHTML = '<div class="ck-h">Pre-tap checklist (your items)</div>' + (L.items.length ? L.items.map((t, i) => '<label class="ck-row chk"><span><input type="checkbox" data-i="' + i + '"' + (L.done[i] ? ' checked' : '') + '> ' + t.replace(/[<>&]/g, '') + '</span><button type="button" class="btn ghost sm" data-r="' + i + '" aria-label="Remove ' + t.replace(/[<>&"]/g, '') + '">Remove</button></label>').join('') : '<div class="ck-sub">Add the checks your plant uses before tap. The app has none of its own.</div>') + '<div class="ck-row"><input id="chkNew" type="text" placeholder="New item" maxlength="60"><button type="button" class="btn sm" id="chkAdd">Add</button></div>' + (L.items.length ? '<div class="ck-sub">' + L.items.filter((_, i) => L.done[i]).length + ' of ' + L.items.length + ' done</div>' : '');
       cl.querySelectorAll('input[type=checkbox]').forEach(c => c.onchange = () => { L.done[c.dataset.i] = c.checked; sv2(); dc(); });
-      cl.querySelectorAll('button[data-r]').forEach(b => b.onclick = e => { e.preventDefault(); const i = +b.dataset.r; L.items.splice(i, 1); L.done = {}; sv2(); dc(); });
+      cl.querySelectorAll('button[data-r]').forEach(b => b.onclick = e => { e.preventDefault(); const i = +b.dataset.r, name = L.items[i], dn = Object.assign({}, L.done); L.items.splice(i, 1); L.done = {}; sv2(); dc(); if (window.__mlToast) window.__mlToast('Removed: ' + name.slice(0, 24), () => { L.items.splice(i, 0, name); L.done = dn; sv2(); dc(); }, null); });
       cl.querySelector('#chkAdd').onclick = () => { const v = cl.querySelector('#chkNew').value.trim(); if (!v) return; L.items.push(v); sv2(); dc(); };
     }
     dc();
   }
   // sync chip
   const chip = document.createElement('div'); chip.className = 'ux-sync'; chip.id = 'uxSync'; document.body.appendChild(chip);
-  const sync = () => { chip.textContent = navigator.onLine ? 'Saved on this device' : 'Offline, all data is on this device'; chip.classList.toggle('off', !navigator.onLine); }; window.addEventListener('online', sync); window.addEventListener('offline', sync); sync();
+  const sync = () => { chip.textContent = navigator.onLine ? 'Saved on this device' : 'Offline, all data is on this device'; chip.classList.toggle('off', !navigator.onLine); chip.classList.remove('fade'); clearTimeout(chip._t); if (navigator.onLine) chip._t = setTimeout(() => chip.classList.add('fade'), 2500); }; window.addEventListener('online', sync); window.addEventListener('offline', sync); sync();
   // settings: night mode, stale limit, pause thresholds
   if (st) {
     const sc = document.createElement('div'); sc.className = 'card'; sc.id = 'uxPrefs';
@@ -2516,15 +2538,60 @@ const MLRef = (function () {
     const nm = sc.querySelector('#pfNight'); nm.checked = localStorage.getItem('meltlab_night') === '1'; const ap = () => document.documentElement.classList.toggle('night', nm.checked); ap();
     nm.onchange = () => { try { localStorage.setItem('meltlab_night', nm.checked ? '1' : '0'); } catch (e) {} ap(); };
     const a = sc.querySelector('#pfStale'), b1 = sc.querySelector('#pfA'), b2 = sc.querySelector('#pfB'); a.value = BS.stale; b1.value = PZ.a; b2.value = PZ.b;
-    const save = () => { const x = parseFloat(a.value), y = parseFloat(b1.value), z = parseFloat(b2.value); if (x > 0) BS.stale = x; if (y > 0) PZ.a = y; if (z > 0) PZ.b = z; try { localStorage.setItem(SK, JSON.stringify(BS)); localStorage.setItem('meltlab_pzset', JSON.stringify({ a: PZ.a, b: PZ.b })); } catch (e) {} draw(); };
+    const msgEl = document.createElement('div'); msgEl.className = 'ck-sub'; msgEl.id = 'pfMsg'; sc.appendChild(msgEl);
+    const save = () => { const x = parseFloat(a.value), y = parseFloat(b1.value), z = parseFloat(b2.value); if (!(x > 0)) { msgEl.textContent = '\u25B2 Out of date limit must be above 0.'; return; } if (!(y > 0) || !(z > 0) || !(y < z)) { msgEl.textContent = '\u25B2 Amber must be above 0 and lower than red.'; return; } msgEl.textContent = '\u2713 Saved.'; if (x > 0) BS.stale = x; if (y > 0) PZ.a = y; if (z > 0) PZ.b = z; try { localStorage.setItem(SK, JSON.stringify(BS)); localStorage.setItem('meltlab_pzset', JSON.stringify({ a: PZ.a, b: PZ.b })); } catch (e) {} draw(); };
     [a, b1, b2].forEach(e => e.addEventListener('change', save));
   }
   window.__mlBased = { stamp, get: () => R };
 })();
 
+// v3.41: same-as-last-heat, lab paste, voice, print sheet, glare, shortcuts
+(function () {
+  const $ = id => document.getElementById(id), host = $('uxClock'), adv = $('s_advice'), heat = $('s_heat'), st = $('s_settings');
+  const fire = e => { e.dispatchEvent(new Event('input', { bubbles: true })); e.dispatchEvent(new Event('change', { bubbles: true })); };
+  const SKIP = new Set(['f_temp', 'f_curC', 'f_curMn', 'f_curSi', 'f_p', 'f_s', 'f_kwh', 'f_o2Used', 'f_charged', 'f_total']);
+  // same as last heat: snapshot at Start heat, restore on tap
+  const LK = 'meltlab_last';
+  function snapshot() { const o = {}; heat.querySelectorAll('input[id^="f_"],select[id^="f_"]').forEach(e => { if (!SKIP.has(e.id) && e.value !== '') o[e.id] = e.value; }); try { localStorage.setItem(LK, JSON.stringify({ at: Date.now(), v: o })); } catch (e) {} }
+  if (host) {
+    const card = document.createElement('div'); card.className = 'card ux-same'; card.id = 'uxSame'; host.insertAdjacentElement('beforebegin', card);
+    const draw = () => { let L = null; try { L = JSON.parse(localStorage.getItem(LK) || 'null'); } catch (e) {} if (!L) { card.style.display = 'none'; return; } card.style.display = ''; card.innerHTML = '<div class="ck-row"><span>Start like the last heat <span class="ck-basis">setup saved ' + new Date(L.at).toLocaleString([], { hour: '2-digit', minute: '2-digit', day: 'numeric', month: 'short' }) + '. Readings are not copied.</span></span><button class="btn ghost sm" id="smBtn">Use it</button></div>'; card.querySelector('#smBtn').onclick = () => { Object.keys(L.v).forEach(id => { const e = $(id); if (e) { e.value = L.v[id]; fire(e); } }); card.querySelector('#smBtn').textContent = 'Applied'; setTimeout(draw, 2500); }; };
+    draw(); host.addEventListener('click', e => { if (e.target.closest('#ckStart')) setTimeout(() => { snapshot(); draw(); }, 50); }, true);
+  }
+  // paste lab result
+  const map = { C: 'f_curC', Mn: 'f_curMn', Si: 'f_curSi', P: 'f_p', S: 'f_s' };
+  function parseLab(t) { const o = {}; Object.keys(map).forEach(k => { const m = new RegExp('(?:^|[^A-Za-z])' + k + '\\s*[:=]?\\s*([0-9]+[.,]?[0-9]*)(?![0-9]*[A-Za-z])', 'i').exec(t); if (m) { const v = parseFloat(m[1].replace(',', '.')); if (!isNaN(v)) o[k] = v; } }); return o; }
+  window.__mlParseLab = parseLab;
+  if (heat) {
+    const cg = $('chemGrid') || $('heatGrid'); const b = document.createElement('div'); b.className = 'ux-step'; b.innerHTML = '<button type="button" class="btn ghost sm" id="labPaste">Paste lab result</button>';
+    if (cg) cg.insertAdjacentElement('beforebegin', b);
+    $('labPaste').onclick = async () => { let t = ''; try { t = await navigator.clipboard.readText(); } catch (e) {} if (!t) t = prompt('Paste the lab result text (for example: C 0.18 Mn 0.45 Si 0.12 P 0.015 S 0.02)') || ''; const o = parseLab(t); const keys = Object.keys(o); if (!keys.length) { alert('No values found. Expected something like: C 0.18 Mn 0.45 Si 0.12 P 0.015 S 0.02'); return; } if (!confirm('Fill these values?\n' + keys.map(k => k + ' ' + o[k]).join('\n'))) return; keys.forEach(k => { const e = $(map[k]); if (e) { e.value = o[k]; fire(e); } }); if (window.__mlBased) window.__mlBased.stamp(); };
+  }
+  // read advice aloud, print sheet
+  if (adv) {
+    const bar = document.createElement('div'); bar.className = 'ux-step'; bar.id = 'uxAdvTools'; bar.innerHTML = '<button type="button" class="btn ghost sm" id="advSay">Read aloud</button><button type="button" class="btn ghost sm" id="advPrint">Print heat sheet</button>';
+    const anchor = $('uxChk') || $('uxBased'); (anchor || adv.firstElementChild).insertAdjacentElement('afterend', bar);
+    $('advSay').onclick = () => { try { const ss = window.speechSynthesis; if (!ss) { alert('This browser cannot read aloud.'); return; } if (ss.speaking) { ss.cancel(); return; } const n = adv.querySelector('.ux-next'); const t = ((n && n.innerText) || adv.innerText.slice(0, 400)).replace(/\s+/g, ' '); ss.speak(new SpeechSynthesisUtterance(t)); } catch (e) {} };
+    $('advPrint').onclick = () => { document.body.classList.add('printing'); setTimeout(() => { try { window.print(); } catch (e) {} setTimeout(() => document.body.classList.remove('printing'), 500); }, 100); };
+  }
+  // shortcuts: double-tap repeats the last value, Enter moves to the next field
+  const T = $('f_temp'), C = $('f_curC');
+  [T, C].forEach(el => { if (!el) return; el.addEventListener('dblclick', () => { const R = window.__mlBased && window.__mlBased.get(); const r = R && (el === T ? R.t : R.c); if (r && String(el.value).trim() === '') { el.value = r.v; fire(el); } }); });
+  if (C) C.addEventListener('keydown', e => { if (e.key === 'Enter' && T) { e.preventDefault(); T.focus(); T.select && T.select(); } });
+  if (T) T.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); T.blur(); const g = document.querySelector('#s_heat .btn[data-go=advice]'); g && g.focus(); } });
+  // glare mode
+  if (st) { const pf = $('uxPrefs'); if (pf) { const l = document.createElement('label'); l.className = 'ck-row'; l.innerHTML = '<span>Glare mode (bright, high contrast)</span><input type="checkbox" id="pfGlare">'; pf.querySelector('p').insertAdjacentElement('afterend', l); const g = l.querySelector('input'); g.checked = localStorage.getItem('meltlab_glare') === '1'; const ap = () => document.documentElement.classList.toggle('glare', g.checked); ap(); g.onchange = () => { try { localStorage.setItem('meltlab_glare', g.checked ? '1' : '0'); } catch (e) {} ap(); }; } }
+})();
+
+// v3.41b: oxygen not entered
+(function () {
+  const $ = id => document.getElementById(id); if (!$('heroO2')) return;
+  setInterval(() => { try { const tc = $('uxTap'); if (tc) tc.style.display = tc.innerText.trim() === '' ? 'none' : ''; } catch (e) {} try { const m = model(); if (m && !(m.o2Total > 0)) { $('heroO2').textContent = '--'; $('heroSub').textContent = 'Oxygen not entered. Set it in Heat (Nm\u00b3 plan).'; } } catch (e) {} }, 1500);
+})();
+
 /* ---- Self-update: check on open, focus, return, reconnect and every 5 minutes; reload at a safe moment ---- */
 (function () {
-  const VER = '3.40';
+  const VER = '3.41';
   try {
     const seen = localStorage.getItem('meltlab_ver_seen');
     if (seen && seen !== VER) {
