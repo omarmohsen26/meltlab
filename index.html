@@ -295,6 +295,7 @@ html.ag-lock body>*:not(#authgate){visibility:hidden}
 .ux-undo{position:fixed;left:16px;right:16px;bottom:170px;z-index:60;background:#2b2f36;border:1px solid rgba(255,255,255,.15);border-radius:16px;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;font-size:15px}.ux-undo button{min-height:48px;padding:0 18px;border-radius:14px;border:0;background:#FFB454;color:#1a1305;font-weight:700}
 .pf.past{opacity:.45}.pf.here{border-color:#fff;background:rgba(255,180,84,.08);border-radius:0 14px 14px 0}.pf-now{font-size:12px;font-weight:800;letter-spacing:.08em;color:#FFB454;margin-bottom:2px}
 .pf-tapw{background:rgba(61,220,132,.14);border:1px solid #3DDC84;border-radius:14px;padding:10px 12px;margin:0 0 12px;font-weight:700}
+.smp-n{font-size:30px;font-weight:800;color:#7ddf9a;margin:4px 0}.smp-n.over{color:#FFB454}.ux-log{padding:12px 16px}
 </style>
 </head>
 <body>
@@ -2276,9 +2277,55 @@ const MLRef = (function () {
   window.__mlProf = draw;
 })();
 
+// v3.31: lab sample timer, one toast at a time, change log
+(function () {
+  const $ = id => document.getElementById(id), host = $('uxClock'); if (!host) return;
+  const K = 'meltlab_smp'; let S = {}; try { S = JSON.parse(localStorage.getItem(K) || '{}') || {}; } catch (e) {}
+  const save = () => { try { localStorage.setItem(K, JSON.stringify(S)); } catch (e) {} };
+  const card = document.createElement('div'); card.className = 'card ux-smp'; card.id = 'uxSmp'; host.insertAdjacentElement('afterend', card);
+  const mm = ms => { const s = Math.abs(Math.round(ms / 1000)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
+  let due = false;
+  function draw() {
+    const dur = S.dur || 0; let h = '<div class="ck-h">Lab sample</div>';
+    if (S.t) {
+      const left = S.t + dur * 60000 - Date.now(), over = left < 0;
+      h += '<div class="smp-n' + (over ? ' over' : '') + '" id="smpN">' + (over ? 'Result overdue ' + mm(left) : 'Result in ' + mm(left)) + '</div><div class="ck-sub">Sample taken ' + new Date(S.t).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ', expected after ' + dur + ' min</div><div class="ck-row"><button class="btn sm" id="smpDone">Result received</button><button class="btn ghost sm" id="smpCancel">Cancel</button></div>';
+    } else {
+      h += '<div class="ck-sub">Minutes until the lab result comes back (you set it, saved on this device)</div><div class="ck-row"><span class="ck-ctl"><button class="btn ghost sm" id="smpM" aria-label="One minute less">-</button><b id="smpD">' + (dur || '--') + ' min</b><button class="btn ghost sm" id="smpP" aria-label="One minute more">+</button></span><button class="btn sm" id="smpGo"' + (dur ? '' : ' disabled') + '>Sample taken</button></div>';
+    }
+    card.innerHTML = h;
+    const q = id => card.querySelector('#' + id);
+    if (q('smpM')) q('smpM').onclick = () => { S.dur = Math.max(1, (S.dur || 6) - 1); save(); draw(); };
+    if (q('smpP')) q('smpP').onclick = () => { S.dur = Math.min(120, (S.dur || 5) + 1); save(); draw(); };
+    if (q('smpGo')) q('smpGo').onclick = () => { S.t = Date.now(); due = false; save(); draw(); };
+    if (q('smpDone')) q('smpDone').onclick = () => { S.t = 0; save(); draw(); };
+    if (q('smpCancel')) q('smpCancel').onclick = () => { S.t = 0; save(); draw(); };
+  }
+  setInterval(() => { if (!S.t) return; const left = S.t + (S.dur || 0) * 60000 - Date.now(), n = $('smpN'); if (n) { n.className = 'smp-n' + (left < 0 ? ' over' : ''); n.textContent = (left < 0 ? 'Result overdue ' : 'Result in ') + mm(left); } if (left <= 0 && !due) { due = true; try { if (navigator.vibrate) navigator.vibrate([200, 100, 200]); } catch (e) {} } }, 1000);
+  draw();
+
+  // one toast at a time, swipe to dismiss, kept above the nav, and a change log
+  window.__mlLog = window.__mlLog || [];
+  const mo = new MutationObserver(() => {
+    const t = $('uxUndo'); if (!t || t.dataset.sw) return; t.dataset.sw = 1;
+    const msg = (t.querySelector('span') || {}).textContent || 'Change', btn = t.querySelector('button'), fn = btn && btn.onclick;
+    if (fn) { window.__mlLog.unshift({ msg, fn, at: Date.now(), used: false }); window.__mlLog.length = Math.min(window.__mlLog.length, 8); renderLog(); }
+    let x0 = 0; t.addEventListener('touchstart', e => { x0 = e.touches[0].clientX; }, { passive: true });
+    t.addEventListener('touchend', e => { if (Math.abs(e.changedTouches[0].clientX - x0) > 60) t.remove(); }, { passive: true });
+  });
+  mo.observe(document.body, { childList: true });
+  const lg = document.createElement('div'); lg.className = 'card ux-log'; lg.id = 'uxLog'; card.insertAdjacentElement('afterend', lg);
+  function renderLog() {
+    const L = window.__mlLog; if (!L.length) { lg.style.display = 'none'; return; } lg.style.display = '';
+    lg.innerHTML = '<div class="ck-h">Recent changes</div>' + L.map((e, i) => '<div class="ck-row"><span>' + e.msg + ' <span class="ck-basis">' + new Date(e.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + '</span></span>' + (e.used ? '<span class="pill">undone</span>' : '<button class="btn ghost sm" data-i="' + i + '">Undo</button>') + '</div>').join('');
+    lg.querySelectorAll('button[data-i]').forEach(b => b.onclick = () => { const e = L[+b.dataset.i]; if (e && !e.used) { e.used = true; try { e.fn(); } catch (x) {} renderLog(); } });
+  }
+  renderLog();
+})();
+
 /* ---- Self-update: check on open, focus, return, reconnect and every 5 minutes; reload at a safe moment ---- */
 (function () {
-  const VER = '3.30';
+  const VER = '3.31';
   try {
     const seen = localStorage.getItem('meltlab_ver_seen');
     if (seen && seen !== VER) {
