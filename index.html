@@ -2487,6 +2487,7 @@ const MLRef = (function () {
     el.addEventListener('change', ev => {
       if (!ev.isTrusted) return; const v = num(el), L = last[el.id], p = parseFloat(String(el.dataset.prev || '').replace(',', '.')), now = Date.now();
       if (isNaN(v)) return;
+      if (el.id === 'f_curC' && (v > 100 || v < 0)) { alert('Carbon is a percent and cannot be ' + v + '. The value was not kept.'); el.value = isNaN(p) ? '' : p; fire(el); return; }
       let msg = '';
       if (L && L.at && L.v === v && now - L.at < 60000) msg = 'You entered the same value twice within a minute. Keep it?';
       else if (!isNaN(p) && p > 0 && v > 0 && (v / p >= 5 || p / v >= 5)) msg = 'That is about ' + (v > p ? Math.round(v / p) : '1/' + Math.round(p / v)) + ' times the last value (' + p + '). Keep ' + v + '?';
@@ -2495,7 +2496,7 @@ const MLRef = (function () {
       last[el.id] = { v, at: now };
     });
   });
-  window.__mlGuard = (el, v) => { const p = parseFloat(String(el.value || '').replace(',', '.')); let msg = ''; if (!isNaN(p) && p > 0 && v > 0 && (v / p >= 5 || p / v >= 5)) msg = 'That is about ' + (v > p ? Math.round(v / p) : '1/' + Math.round(p / v)) + ' times the current value (' + p + '). Keep ' + v + '?'; else if (!isNaN(p) && Math.abs(v - p) > JUMP[el.id]) msg = 'This is a big change from ' + p + '. Keep ' + v + '?'; return !msg || confirm(msg); };
+  window.__mlGuard = (el, v) => { if (el.id === 'f_curC' && (v > 100 || v < 0)) { alert('Carbon is a percent and cannot be ' + v + '. The value was not kept.'); return false; } const p = parseFloat(String(el.value || '').replace(',', '.')); let msg = ''; if (!isNaN(p) && p > 0 && v > 0 && (v / p >= 5 || p / v >= 5)) msg = 'That is about ' + (v > p ? Math.round(v / p) : '1/' + Math.round(p / v)) + ' times the current value (' + p + '). Keep ' + v + '?'; else if (!isNaN(p) && Math.abs(v - p) > JUMP[el.id]) msg = 'This is a big change from ' + p + '. Keep ' + v + '?'; return !msg || confirm(msg); };
   // reopen recovery
   const SK = 'meltlab_seen'; let seen = 0; try { seen = +localStorage.getItem(SK) || 0; } catch (e) {}
   const c = window.__mlClock && window.__mlClock.get(); const away = Date.now() - seen;
@@ -2578,7 +2579,7 @@ const MLRef = (function () {
   }
   // paste lab result
   const map = { C: 'f_curC', Mn: 'f_curMn', Si: 'f_curSi', P: 'f_p', S: 'f_s' };
-  function parseLab2(t) { const vals = {}, errs = []; Object.keys(map).forEach(k => { const re = new RegExp('(?:^|[^A-Za-z])' + k + '\\s*[:=]?\\s*([0-9]+(?:[.,][0-9]+)?)\\s*(%|pct\\b|percent\\b)?', 'gi'); let m, seen = []; while ((m = re.exec(t))) { const v = parseFloat(m[1].replace(',', '.')); if (isNaN(v)) continue; if (!m[2]) { errs.push(k + ' ' + m[1] + ' has no unit. Add % (for example ' + k + ' ' + m[1] + ' %).'); continue; } seen.push(v); } if (seen.length > 1 && seen.some(x => x !== seen[0])) errs.push(k + ' appears with different numbers (' + seen.join(' and ') + ').'); else if (seen.length) vals[k] = seen[0]; }); return { vals, errs }; }
+  function parseLab2(t) { const vals = {}, errs = []; Object.keys(map).forEach(k => { const re = new RegExp('(?:^|[^A-Za-z])' + k + '\\s*[:=]?\\s*([0-9]+(?:[.,][0-9]+)?)\\s*(%|pct\\b|percent\\b)?', 'gi'); let m, seen = []; while ((m = re.exec(t))) { const v = parseFloat(m[1].replace(',', '.')); if (isNaN(v)) continue; if (!m[2]) { errs.push(k + ' ' + m[1] + ' has no unit. Add % (for example ' + k + ' ' + m[1] + ' %).'); continue; } seen.push(v); } if (seen.length > 1 && seen.some(x => x !== seen[0])) errs.push(k + ' appears with different numbers (' + seen.join(' and ') + ').'); else if (seen.length) { if (k === 'C' && (seen[0] > 100)) errs.push('C ' + seen[0] + ' % is impossible for a percent.'); else vals[k] = seen[0]; } }); return { vals, errs }; }
   function parseLab(t) { const r = parseLab2(t); return r.errs.length ? {} : r.vals; }
   window.__mlParseLab2 = parseLab2;
   window.__mlParseLab = parseLab;
@@ -2697,7 +2698,7 @@ const MLRef = (function () {
 
 /* ---- Self-update: check on open, focus, return, reconnect and every 5 minutes; reload at a safe moment ---- */
 (function () {
-  const VER = '3.42';
+  const VER = '3.42.1';
   try {
     const seen = localStorage.getItem('meltlab_ver_seen');
     if (seen && seen !== VER) {
