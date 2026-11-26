@@ -3,7 +3,7 @@
 <head><script>(function(){try{if(!/[?&]demo=1\b/.test(location.search))return;var m={};var S=Storage.prototype;S.setItem=function(k,v){m[k]=String(v)};S.getItem=function(k){return Object.prototype.hasOwnProperty.call(m,k)?m[k]:null};S.removeItem=function(k){delete m[k]};S.clear=function(){m={}};
 document.documentElement.setAttribute('data-demo','1');var st=document.createElement('style');st.textContent='html[data-demo] #authgate{display:none!important}html[data-demo] body>*:not(#authgate){visibility:visible!important}#demoBar{position:sticky;top:0;z-index:70;background:#FFB454;color:#1b1b1b;font:700 14px/1.3 system-ui,sans-serif;padding:8px 12px;text-align:center}';document.head.appendChild(st);
 window.__mlDemo=true;document.addEventListener('DOMContentLoaded',function(){var b=document.createElement('div');b.id='demoBar';b.textContent='DEMO. Made-up numbers only. Nothing is saved. Advisory only. Not for plant use.';document.body.insertBefore(b,document.body.firstChild);
-var set=function(id,v){var e=document.getElementById(id);if(e){e.value=v;e.dispatchEvent(new Event('input',{bubbles:true}));e.dispatchEvent(new Event('change',{bubbles:true}))}};setTimeout(function(){set('f_charged',100);set('f_curC',0.2);set('f_temp',1597)},1800)})}catch(e){}})();
+var snap={};var take=function(){['f_charged','f_curC','f_temp'].forEach(function(id){var e=document.getElementById(id);if(e&&!(id in snap))snap[id]=e.value})};setTimeout(take,150);var set=function(id,v){var e=document.getElementById(id);if(e&&(id in snap)&&e.value===snap[id]){e.value=v;e.dispatchEvent(new Event('input',{bubbles:true}));e.dispatchEvent(new Event('change',{bubbles:true}))}};setTimeout(function(){set('f_charged',100);set('f_curC',0.2);set('f_temp',1597)},1800)})}catch(e){}})();
 </script>
 <script>document.documentElement.dataset.theme=localStorage.getItem("meltlab_theme")||"dark"</script>
 <meta charset="utf-8">
@@ -389,6 +389,8 @@ html.night .ux-sheet .sh-a .btn.ghost{color:#fff;border-color:#8a96a3}
 .ux-sheet .ip-b{max-height:92vh;overflow:auto}.ux-sheet .ip-w{max-height:46vh;overflow:auto;border:1px solid rgba(128,128,128,.5);border-radius:10px;margin:0 0 14px;background:#fff}.ux-sheet .ip-w img{display:block;width:100%;height:auto}
 html:not(.night) #uxGrp input[type=number],html:not(.night) #uxGrp input[type=text]{color:#111!important;-webkit-text-fill-color:#111}
 html:not(.night) #uxGrp input::placeholder{color:#666!important}
+.imp-row.imp-low{background:rgba(255,120,60,.12);border-left:4px solid #ff7a3c;padding-left:8px}
+@media print{body.printing .tri-wy,body.printing #triWhy{display:none!important}}
 </style>
 </head>
 <body>
@@ -896,7 +898,7 @@ function inputSnapshot() { const o = {}; Object.keys(els).forEach(k => { if (els
 function handoverText(m) {
     const pr = profile(m), L = [];
     L.push('MeltLab heat plan (decision support only, check against plant procedures)');
-    L.push('Charge ' + r0(m.total) + ' t, charged ' + r0(m.charged) + ' t | C ' + (m.c0 === null ? '-' : r2(m.c0) + '%') + ' to ' + r2(m.ct) + '% | ' + r0(m.tNow) + ' C, tap aim ' + r0(m.tAim) + ' C');
+    L.push('Charge ' + r0(m.total) + ' t, charged ' + r0(m.charged) + ' t | C ' + (m.c0 === null ? '- now, aim ' + rcp(0, m.ct)[1] + ' %' : rcp(m.c0, m.ct)[0] + ' % now, aim ' + rcp(m.c0, m.ct)[1] + ' %') + ' | ' + r0(m.tNow) + ' C, tap aim ' + r0(m.tAim) + ' C');
     L.push('Power ' + r0(m.power) + ' MW | O2 to blow ' + r0(m.o2Rem) + ' Nm3 | ' + m.jets + ' jet' + (m.jets > 1 ? 's' : '') + ' at ' + r0(m.perJet) + ' Nm3/h | lime ' + r0(m.limeTotal) + ' kg | ' + (m.finalKwhT !== null ? r0(m.finalKwhT) : r0(m.eTotal / m.total)) + ' kWh/t');
     L.push('Plan (' + mmss(pr.tEnd) + ' to tap):');
     stepsData(m, pr).forEach(x => L.push('  ' + mmss(x[0]) + ' ' + x[1] + ': ' + x[2]));
@@ -911,7 +913,7 @@ function drawH() {
     const h = loadH(), el = document.getElementById('histList');
     document.getElementById('clearH').style.display = h.length ? '' : 'none';
     el.innerHTML = h.length ? h.map((x, i) => '<div class="card"><div class="score-top"><span>' + esc(x.d) + '</span><span class="val">' + esc(x.n) + '</span></div>'
-        + '<div class="reco-formula" style="margin-top:8px">C ' + esc(x.c) + '% | ' + esc(x.t) + ' C | charge ' + esc(x.ch) + ' t | O2 to go ' + esc(x.o) + ' Nm3 | ' + esc(x.j) + ' jets | ' + esc(x.e) + ' kWh/t</div>'
+        + '<div class="reco-formula" style="margin-top:8px">C ' + esc(x.c) + ' % | ' + esc(x.t) + ' C | charge ' + esc(x.ch) + ' t | O2 to go ' + esc(x.o) + ' Nm3 | ' + esc(x.j) + ' jets | ' + esc(x.e) + ' kWh/t</div>'
         + (x.txt ? '<details class="hist-d"><summary>Full plan</summary><pre>' + esc(x.txt) + '</pre></details>' : '')
         + '<div class="row">' + (x.inp ? '<button class="btn ghost sm" data-load="' + i + '">Load inputs</button>' : '') + (x.txt ? '<button class="btn ghost sm" data-copy="' + i + '">Copy</button>' : '') + '<button class="btn ghost sm" data-del="' + i + '">Delete</button></div></div>').join('')
         : '<p class="sub" style="margin:18px 4px">No heats yet. Get advice for a heat, then tap Log this heat on the Advice screen to keep it here. Entries stay on this device only.</p><button class="btn" data-go="heat">Start a heat</button>';
@@ -1201,17 +1203,18 @@ if (typeof module !== 'undefined') module.exports = MLFind;
         m.querySelector('#impCancel').onclick = () => m.remove();
         m.addEventListener('click', (e) => { if (e.target === m) m.remove(); });
         m.querySelector('#impApply').onclick = () => {
-            let n = 0;
+            let n = 0; const bad = [];
             m.querySelectorAll('.imp-row').forEach(r => {
                 if (!r.querySelector('input[type=checkbox]').checked) return;
                 const o = found[+r.dataset.i]; const v = r.querySelector('.imp-v').value.trim();
                 if (v === '' || isNaN(parseFloat(v.replace(',', '.')))) return;
                 let val = v.replace(',', '.');
+                { const pv = parseFloat(val); if ((o.key === 'curC' && state.carbonUnit !== 'points' && (pv > 100 || pv < 0)) || (o.key === 'temp' && (pv <= 0 || pv > 2500))) { bad.push(label[o.key] || o.key); return; } }
                 if ((o.key === 'curC' || o.key === 'tgtC') && state.carbonUnit === 'points') val = String(Math.round(parseFloat(val) * 100));
                 els[o.key].value = val; (window.__mlFile = window.__mlFile || {})[o.key] = 1; n++;
             });
             try { saveState(); } catch (e) {}
-            render(); m.remove(); msg(n + ' value' + (n === 1 ? '' : 's') + ' applied from the file. Check the Heat fields, then tap Get advice.');
+            render(); m.remove(); msg((bad.length ? 'Not applied, out of range: ' + bad.join(', ') + '. ' : '') + n + ' value' + (n === 1 ? '' : 's') + ' applied from the file. Check the Heat fields, then tap Get advice.');
         };
     }
 })();
@@ -2786,14 +2789,14 @@ const MLRef = (function () {
   const fix = () => { document.querySelectorAll('input,select,textarea').forEach(e => { if (e.type === 'hidden' || e.type === 'file' || e.getAttribute('aria-label') || e.getAttribute('aria-labelledby')) return; if (e.labels && e.labels.length) { const t = e.labels[0].textContent.replace(/\s+/g, ' ').trim(); if (t) { e.setAttribute('aria-label', t.slice(0, 80)); return; } } if (e.id === 'agE') e.setAttribute('aria-label', 'Email address'); else if (e.id === 'agP') e.setAttribute('aria-label', 'Password'); else e.setAttribute('aria-label', nameOf(e)); }); };
   setInterval(fix, 2500); fix();
 })();
-(function () { const put = v => { const g = document.getElementById('authgate'), c = g && g.querySelector('.ag-card'); if (!c) return; if (!c.querySelector('#agVer')) { const d = document.createElement('div'); d.id = 'agVer'; d.textContent = 'MeltLab v' + v; d.style.cssText = 'text-align:center;font-size:13px;opacity:.8;padding:10px'; c.appendChild(d); } if (!c.querySelector('#agDemo')) { const a = document.createElement('a'); a.id = 'agDemo'; a.href = '?demo=1'; a.textContent = 'Try demo (no sign-in, made-up numbers)'; a.style.cssText = 'display:block;text-align:center;font-size:16px;font-weight:700;padding:12px;color:#FFB454;text-decoration:underline'; c.appendChild(a); } }; const BV = '3.47'; put(BV); setInterval(() => { put(BV); const f = document.querySelector('footer'); if (f && !f.dataset.v) { f.dataset.v = 1; f.textContent = 'MeltLab v' + BV + '. ' + f.textContent.replace(/^MeltLab v3\.\s*/, ''); } }, 800); })();
+(function () { const put = v => { const g = document.getElementById('authgate'), c = g && g.querySelector('.ag-card'); if (!c) return; if (!c.querySelector('#agVer')) { const d = document.createElement('div'); d.id = 'agVer'; d.textContent = 'MeltLab v' + v; d.style.cssText = 'text-align:center;font-size:13px;opacity:.8;padding:10px'; c.appendChild(d); } if (!c.querySelector('#agDemo')) { const a = document.createElement('a'); a.id = 'agDemo'; a.href = '?demo=1'; a.textContent = 'Try demo (no sign-in, made-up numbers)'; a.style.cssText = 'display:block;text-align:center;font-size:16px;font-weight:700;padding:12px;color:#FFB454;text-decoration:underline'; c.appendChild(a); } }; const BV = '3.48'; put(BV); setInterval(() => { put(BV); const f = document.querySelector('footer'); if (f && !f.dataset.v) { f.dataset.v = 1; f.textContent = 'MeltLab v' + BV + '. ' + f.textContent.replace(/^MeltLab v3\.\s*/, ''); } }, 800); })();
 
 // v3.46: delta vs last logged heat
 (function () {
   const adv = document.getElementById('s_advice'); if (!adv) return;
   const card = document.createElement('div'); card.className = 'card ux-delta'; card.id = 'uxDelta';
   const tri = document.getElementById('uxTri'); (tri || adv.querySelector('header')).insertAdjacentElement('afterend', card);
-  const num = x => { const n = parseFloat(String(x).replace(',', '.')); return isNaN(n) ? null : n; };
+  const num = x => { const n = parseFloat(String(x).replace(/,(?=\d{3}(\D|$))/g, '').replace(',', '.')); return isNaN(n) ? null : n; };
   const sg = (d, dec, u) => (d > 0 ? '+' : d < 0 ? '-' : '') + (Math.round(Math.abs(d) * Math.pow(10, dec)) / Math.pow(10, dec)) + (u ? ' ' + u : '');
   function draw() {
     if (adv.offsetParent === null) return;
@@ -2816,7 +2819,7 @@ const MLRef = (function () {
 
 /* ---- Self-update: check on open, focus, return, reconnect and every 5 minutes; reload at a safe moment ---- */
 (function () {
-  const VER = '3.47';
+  const VER = '3.48';
   try {
     const seen = localStorage.getItem('meltlab_ver_seen');
     if (seen && seen !== VER) {
