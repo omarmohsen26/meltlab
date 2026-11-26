@@ -401,6 +401,11 @@ html:not(.night) #uxGrp input::placeholder{color:#666!important}
 .ux-steps button.done .tk{display:inline}
 #tgtGrid{grid-template-columns:repeat(3,1fr);gap:8px}
 #tgtGrid .field{padding:10px 10px}
+
+/* v3.51: cycle 3 - header clears the demo banner on scroll-into-view, 3-up charge tiles */
+.screen header{scroll-margin-top:70px}
+#heatGrid{grid-template-columns:repeat(3,1fr);gap:8px}
+#heatGrid .field{padding:10px 10px}
 </style>
 </head>
 <body>
@@ -882,6 +887,7 @@ buildFields('heatGrid', FIELDS.heat);
 buildFields('chemGrid', FIELDS.chem);
 buildFields('o2Grid', FIELDS.o2);
 buildFields('tgtGrid', FIELDS.tgt);
+['tgtMn', 'tgtSi'].forEach(k => { if (els[k]) els[k].placeholder = 'optional'; });
 buildFields('constGrid', FIELDS.consts);
 FIELDS.consts.forEach(([key]) => { els[key].value = K[key]; });
 
@@ -926,7 +932,9 @@ function drawH() {
         + '<div class="reco-formula" style="margin-top:8px">C ' + esc(x.c) + ' % | ' + esc(x.t) + ' C | charge ' + esc(x.ch) + ' t | O2 to go ' + esc(x.o) + ' Nm3 | ' + esc(x.j) + ' jets | ' + esc(x.e) + ' kWh/t</div>'
         + (x.txt ? '<details class="hist-d"><summary>Full plan</summary><pre>' + esc(x.txt) + '</pre></details>' : '')
         + '<div class="row">' + (x.inp ? '<button class="btn ghost sm" data-load="' + i + '">Load inputs</button>' : '') + (x.txt ? '<button class="btn ghost sm" data-copy="' + i + '">Copy</button>' : '') + '<button class="btn ghost sm" data-del="' + i + '">Delete</button></div></div>').join('')
-        : '<p class="sub" style="margin:18px 4px">No heats yet. Get advice for a heat, then tap Log this heat on the Advice screen to keep it here. Entries stay on this device only.</p><button class="btn" data-go="heat">Start a heat</button>';
+        : '<div class="card"><div class="imp-t">What you will see here</div><div class="imp-s">Each heat you log from the Advice screen: its readings, the plan, and buttons to reload the inputs or copy the handover. Entries stay on this device only.</div></div>'
+        + '<div class="card hist-ex"><div class="score-top"><span>Example, not saved</span><span class="val">Heat 1</span></div><div class="reco-formula" style="margin-top:8px">C 0.19 % | 1,597 C | charge 100 t | O2 to go 320 Nm3 | 2 jets | 495 kWh/t</div><div class="imp-s" style="margin-top:8px">Made-up numbers, only to show what a logged heat looks like.</div></div>'
+        + '<p class="sub" style="margin:14px 4px">No heats yet. Get advice for a heat, then tap Log this heat on the Advice screen to keep it here.</p><button class="btn" data-go="heat">Start a heat</button>';
     el.querySelectorAll('[data-del]').forEach(b => b.addEventListener('click', async () => { if ((await window.__mlSheet('Delete this heat?', 'This logged heat is deleted from this device.', [{ l: 'Keep', v: 'no', p: 1 }, { l: 'Delete', v: 'yes' }])) !== 'yes') return; const a = loadH(); a.splice(+b.dataset.del, 1); saveH(a); drawH(); }));
     el.querySelectorAll('[data-copy]').forEach(b => b.addEventListener('click', () => shareText(loadH()[+b.dataset.copy].txt, b)));
     el.querySelectorAll('[data-load]').forEach(b => b.addEventListener('click', () => { const x = loadH()[+b.dataset.load]; Object.keys(els).forEach(k => { if (x.inp[k] !== undefined) els[k].value = x.inp[k]; }); render(); go('heat'); }));
@@ -2799,7 +2807,7 @@ const MLRef = (function () {
   const fix = () => { document.querySelectorAll('input,select,textarea').forEach(e => { if (e.type === 'hidden' || e.type === 'file' || e.getAttribute('aria-label') || e.getAttribute('aria-labelledby')) return; if (e.labels && e.labels.length) { const t = e.labels[0].textContent.replace(/\s+/g, ' ').trim(); if (t) { e.setAttribute('aria-label', t.slice(0, 80)); return; } } if (e.id === 'agE') e.setAttribute('aria-label', 'Email address'); else if (e.id === 'agP') e.setAttribute('aria-label', 'Password'); else e.setAttribute('aria-label', nameOf(e)); }); };
   setInterval(fix, 2500); fix();
 })();
-(function () { const put = v => { const g = document.getElementById('authgate'), c = g && g.querySelector('.ag-card'); if (!c) return; if (!c.querySelector('#agVer')) { const d = document.createElement('div'); d.id = 'agVer'; d.textContent = 'MeltLab v' + v; d.style.cssText = 'text-align:center;font-size:13px;opacity:.8;padding:10px'; c.appendChild(d); } if (!c.querySelector('#agDemo')) { const a = document.createElement('a'); a.id = 'agDemo'; a.href = '?demo=1'; a.textContent = 'Try demo (no sign-in, made-up numbers)'; a.style.cssText = 'display:block;text-align:center;font-size:16px;font-weight:700;padding:12px;color:#FFB454;text-decoration:underline'; c.appendChild(a); } }; const BV = '3.50'; put(BV); setInterval(() => { put(BV); const f = document.querySelector('footer'); if (f && !f.dataset.v) { f.dataset.v = 1; f.textContent = 'MeltLab v' + BV + '. ' + f.textContent.replace(/^MeltLab v3\.\s*/, ''); } }, 800); })();
+(function () { const put = v => { const g = document.getElementById('authgate'), c = g && g.querySelector('.ag-card'); if (!c) return; if (!c.querySelector('#agVer')) { const d = document.createElement('div'); d.id = 'agVer'; d.textContent = 'MeltLab v' + v; d.style.cssText = 'text-align:center;font-size:13px;opacity:.8;padding:10px'; c.appendChild(d); } if (!c.querySelector('#agDemo')) { const a = document.createElement('a'); a.id = 'agDemo'; a.href = '?demo=1'; a.textContent = 'Try demo (no sign-in, made-up numbers)'; a.style.cssText = 'display:block;text-align:center;font-size:16px;font-weight:700;padding:12px;color:#FFB454;text-decoration:underline'; c.appendChild(a); } }; const BV = '3.51'; put(BV); setInterval(() => { put(BV); const f = document.querySelector('footer'); if (f && !f.dataset.v) { f.dataset.v = 1; f.textContent = 'MeltLab v' + BV + '. ' + f.textContent.replace(/^MeltLab v3\.\s*/, ''); } }, 800); })();
 
 // v3.46: delta vs last logged heat
 (function () {
@@ -2836,7 +2844,7 @@ const MLRef = (function () {
   const hd = heat.querySelector('header'), subEl = hd && hd.querySelector('.sub');
   if (hd && subEl) hd.appendChild(subEl);
   const st = document.createElement('style');
-  st.textContent = '#nxWrap{position:sticky;bottom:calc(env(safe-area-inset-bottom) + 84px);z-index:5;background:color-mix(in srgb,var(--paper) 90%,transparent);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:18px;box-shadow:0 10px 30px rgba(0,0,0,.35);padding:4px 4px 4px 14px;margin-top:10px;display:flex;align-items:center;gap:10px}'
+  st.textContent = '#nxWrap{position:sticky;bottom:calc(env(safe-area-inset-bottom) + 94px);z-index:5;background:color-mix(in srgb,var(--paper) 90%,transparent);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:18px;box-shadow:0 10px 30px rgba(0,0,0,.35);padding:4px 4px 4px 14px;margin-top:10px;display:flex;align-items:center;gap:10px}'
     + '#nxWrap .nx-sum{flex:1;min-width:0;font-size:14px;line-height:1.3;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}'
     + '#nxWrap .nx-sum b{color:var(--ink);font-weight:600;white-space:nowrap}'
     + '#nxWrap .btn{flex:none;min-height:48px;padding:8px 18px;margin:0}'
@@ -2881,7 +2889,7 @@ const MLRef = (function () {
 
 /* ---- Self-update: check on open, focus, return, reconnect and every 5 minutes; reload at a safe moment ---- */
 (function () {
-  const VER = '3.50';
+  const VER = '3.51';
   try {
     const seen = localStorage.getItem('meltlab_ver_seen');
     if (seen && seen !== VER) {
