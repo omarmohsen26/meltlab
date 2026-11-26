@@ -274,6 +274,11 @@ html.ag-lock body>*:not(#authgate){visibility:hidden}
 
 .ux-ex{margin:6px 4px 14px}.ux-ex-t{font-size:13px;color:var(--muted,#6B7078);margin-bottom:8px}.ux-ex-r{display:flex;gap:8px;flex-wrap:wrap}.ux-ex-r .btn{min-height:48px;flex:1}
 .screen{padding-bottom:190px}
+.ux-tap{padding:14px 16px}.ux-tr{display:flex;align-items:center;gap:10px;min-height:44px;font-size:15px}.ux-tr b{margin-left:auto;font-weight:600}
+.ux-dot{width:12px;height:12px;border-radius:50%;background:#6B7078}.ux-dot.ok{background:#3DDC84}.ux-dot.no{background:#FFB454}
+.ux-ready{font-size:14px;margin-top:6px;color:var(--muted,#A8ADB5)}.ux-ready.ok{color:#3DDC84}
+.ux-age{font-size:13px;margin-top:8px;color:var(--muted,#A8ADB5)}.ux-age.old{color:#FFB454;font-weight:600}
+.imp-v{min-width:120px}
 </style>
 </head>
 <body>
@@ -1063,7 +1068,7 @@ if (typeof module !== 'undefined') module.exports = MLFind;
             MLFind.fromLines(text.split(/\r?\n/), found, seen);
             found.forEach(o => { o.note = (o.note ? o.note + '; ' : '') + 'read by OCR, check the digits'; if (o.how !== 'check') o.how = 'ocr'; });
         } else throw new Error('This file type is not supported. Use .xlsx, .csv, .docx, .txt, a PDF or a photo.');
-        const report = window.MLReport ? MLReport.parse(text) : null;
+        const report = (typeof MLReport !== 'undefined') ? MLReport.parse(text) : null;
         if (report) return { report, found, ocr, text };
         return { found, ocr, text: text.split('\n').slice(0, 40).join('\n') };
     }
@@ -1092,6 +1097,139 @@ if (typeof module !== 'undefined') module.exports = MLFind;
     }
 })();
 
+/* ---- Report import: slag table and heat summary, parsed on this device ---- */
+const MLReport = (function () {
+    const OX = [['CaO', 'CAO'], ['SiO2', 'SIO2'], ['Fe2O3', 'FE2O3'], ['Al2O3', 'AL2O3'], ['MgO', 'MGO'], ['MnO', 'MNO'], ['P2O5', 'P2O5'], ['S', 'S'], ['TiO2', 'TIO2'], ['Cr2O3', 'CR2O3'], ['Na2O', 'NA2O'], ['K2O', 'K2O']];
+    const HEAT = [
+        ['ccmheat', 'CCM heat no', /ccm\s*heat/i], ['heatshift', 'Heat no (shift)', /heat\s*no.*shift|shift/i], ['heatday', 'Heat no (day)', /heat\s*no.*day|per\s*day/i],
+        ['heatno', 'Heat no', /^heat\s*no/i], ['heat', 'Heat', /^heat$/i], ['date', 'Date', /^date$/i], ['group', 'Group', /^group$/i],
+        ['start', 'Start (hrs)', /^start/i], ['end', 'End (hrs)', /^end/i], ['taptap', 'Tap-Tap (min)', /tap\W*tap/i],
+        ['tpower', 'T.Power', /^t\W*power/i], ['poweron', 'Power on (min)', /power\s*on/i], ['nbasket', 'No. of baskets', /no\W*\s*basket|baskets?$/i],
+        ['local', 'Local scrap (t)', /^local/i], ['import', 'Import scrap (t)', /^import/i], ['skulls', 'Skulls (t)', /^skull/i],
+        ['dirshr', 'Dir-Shr (t)', /dir\W*shr/i], ['conshr', 'Con-Shr (t)', /con\W*shr/i],
+        ['drirem', 'DRI Remet (t)', /dri\s*remet/i], ['dribriq', 'DRI Briq (t)', /dri\s*bri[qg]/i], ['dri', 'DRI (t)', /^dri$/i], ['hbi', 'HBI (t)', /^hbi/i],
+        ['home', 'Home scrap (t)', /^home/i], ['tmetal', 'T.Metallic (t)', /t\W*metallic/i], ['weight', 'Weight (t)', /^weight/i], ['yield', 'Yield (%)', /^yield/i],
+        ['life', 'Furnace life', /furnace/i], ['strand', 'CCM strand', /strand/i], ['seq', 'Seq no', /^seq/i], ['delays', 'Delays', /^delay/i]
+    ];
+    const norm = (s) => String(s).toUpperCase().replace(/[^A-Z0-9]/g, '').replace(/0/g, 'O');
+    const num = (s) => { const m = String(s).match(/-?\d+(?:[.,]\d+)?/); return m ? parseFloat(m[0].replace(',', '.')) : null; };
+    function slag(lines) {
+        const got = {}; let ib = null;
+        lines.forEach(l => {
+            const t = String(l).replace(/[|:=]/g, ' ').trim().split(/\s+/); if (t.length < 2) return;
+            let i = 0; if (/^\d{1,2}$/.test(t[0]) && t.length > 2) i = 1;
+            const nm = norm(t[i]), nm2 = i + 1 < t.length ? norm(t[i] + t[i + 1]) : '';
+            const rest = t.slice(i + 1).join(' ');
+            if (nm === 'IB' || nm2 === 'IB' || nm === 'IBO' ) { const v = num(nm2 === 'IB' ? t.slice(i + 2).join(' ') : rest); if (v !== null && ib === null && v > 0 && v < 10) ib = v; return; }
+            const ALI = { A2O3: 'AL2O3', AI2O3: 'AL2O3', ALZO3: 'AL2O3', SS: 'S', FEZO3: 'FE2O3', CRZO3: 'CR2O3', P2O5: 'P2O5' }; const nk = ALI[nm] || nm; const hit = OX.find(o => o[1] === nk); if (!hit || got[hit[0]] !== undefined) return;
+            const v = num(rest); if (v === null || v < 0 || v > 100) return;
+            got[hit[0]] = v;
+        });
+        const n = Object.keys(got).length;
+        if (n >= 4 && got.CaO !== undefined && got.SiO2 !== undefined) return { kind: 'slag', ox: got, ib };
+        return null;
+    }
+    function heat(lines) {
+        const got = {}; let last = null;
+        lines.forEach(l => {
+            const s = String(l).replace(/\s+/g, ' ').trim(); if (!s) return;
+            const m = s.match(/^(.{1,26}?)\s*[:;]\s*(.*)$/);
+            if (!m) { if (last === 'delays' && got.delays !== undefined && !/^[A-Za-z .\-]{1,12}$/.test(s) ) got.delays += ' ' + s; return; }
+            const lab = m[1].trim(), val = m[2].trim();
+            const h = HEAT.find(x => x[2].test(lab)); if (!h) { last = null; return; }
+            if (got[h[0]] === undefined) got[h[0]] = val; last = h[0];
+        });
+        const keys = Object.keys(got);
+        if (keys.length >= 5 && (got.tmetal !== undefined || got.heat !== undefined || got.heatno !== undefined || got.heatshift !== undefined)) return { kind: 'heat', f: got };
+        return null;
+    }
+    function parse(text) {
+        const lines = String(text).split(/\r?\n/);
+        const h = heat(lines), s = slag(lines);
+        if (h && s) return Object.assign({}, h, { slag: s });
+        return h || s || null;
+    }
+    const KEY = 'meltlab_rep';
+    const load = () => { try { return JSON.parse(localStorage.getItem(KEY) || '{}'); } catch (e) { return {}; } };
+    const save = (o) => { try { localStorage.setItem(KEY, JSON.stringify(o)); } catch (e) {} };
+    const esc = (t) => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+    const r2 = (x) => Math.round(x * 100) / 100;
+    function basicity(o) { return o && o.CaO && o.SiO2 ? o.CaO / o.SiO2 : null; }
+    function aim() { const e = document.getElementById('f_basicity'); const v = e ? parseFloat(e.value) : NaN; return isNaN(v) ? null : v; }
+    function slagLine(sl) {
+        const b = basicity(sl.ox), a = aim(); const parts = [];
+        if (b !== null) parts.push('B2 (CaO/SiO2) ' + r2(b));
+        if (sl.ib !== null && sl.ib !== undefined) parts.push('I_B ' + r2(sl.ib));
+        if (sl.ox.MgO !== undefined) parts.push('MgO ' + sl.ox.MgO + '%');
+        if (sl.ox.Fe2O3 !== undefined) parts.push('Fe2O3 ' + sl.ox.Fe2O3 + '%');
+        return parts.join(' | ') + (a !== null && b !== null ? ' | aim ' + a : '');
+    }
+    function verdict(sl) {
+        const b = basicity(sl.ox), a = aim(); if (b === null || a === null) return '';
+        const d = b - a; let t = Math.abs(d) <= 0.15 ? 'Basicity is close to your aim.' : (d < 0 ? 'Basicity is ' + r2(-d) + ' below your aim. Check the lime addition against the plant procedures.' : 'Basicity is ' + r2(d) + ' above your aim. Check the lime addition against the plant procedures.');
+        if (sl.ib !== null && sl.ib !== undefined && Math.abs(sl.ib - b) > 0.2) t += ' B2 and I_B differ by more than 0.2: check the digits.';
+        return t;
+    }
+    // card on the Heat screen
+    function draw() {
+        const old = document.getElementById('repCard'); if (old) old.remove();
+        const rep = load(); if (!rep.heat && !rep.slag) return;
+        const anchor = document.getElementById('impCard'); if (!anchor) return;
+        const c = document.createElement('div'); c.className = 'card'; c.id = 'repCard';
+        let h = '<div class="imp-t">From your reports</div>';
+        if (rep.heat) { const f = rep.heat; h += '<div class="rep-r"><b>Heat report</b> ' + esc([f.heat || f.heatno || f.heatshift, f.date].filter(Boolean).join(' | ')) + (f.tmetal ? '<br>T.Metallic ' + esc(f.tmetal) + ' t' : '') + (f.weight ? ' | Weight ' + esc(f.weight) + ' t' : '') + (f.yield ? ' | Yield ' + esc(f.yield) + '%' : '') + '</div>'; }
+        if (rep.slag) h += '<div class="rep-r"><b>Slag check</b><br>' + esc(slagLine(rep.slag)) + '<br><span class="sub">' + esc(verdict(rep.slag)) + '</span></div>';
+        h += '<button class="btn ghost sm" id="repClear">Clear</button>';
+        c.innerHTML = h; anchor.insertAdjacentElement('afterend', c);
+        c.querySelector('#repClear').onclick = () => { localStorage.removeItem(KEY); draw(); };
+    }
+    function review(rp, fname, ocr) {
+        const m = document.createElement('div'); m.className = 'modal'; m.id = 'impModal';
+        const rows = [];
+        const add = (grp, k, label, val, map) => rows.push('<div class="imp-row" data-g="' + grp + '" data-k="' + k + '"' + (map ? ' data-map="' + map + '"' : '') + '><div class="imp-c"><div class="imp-l">' + esc(label) + (map ? ' <span class="pill">fills ' + esc(map) + '</span>' : '') + '</div></div><input class="imp-v" value="' + esc(val) + '" aria-label="' + esc(label) + '"></div>');
+        let sl = rp.slag || (rp.kind === 'slag' ? rp : null);
+        if (rp.kind === 'heat') {
+            HEAT.forEach(h => { if (rp.f[h[0]] !== undefined) add('heat', h[0], h[1], rp.f[h[0]], h[0] === 'tmetal' ? 'Total charge planned' : ''); });
+        }
+        if (sl) {
+            OX.forEach(o => { if (sl.ox[o[0]] !== undefined) add('slag', o[0], o[0] + ' (%)', sl.ox[o[0]]); });
+            if (sl.ib !== null && sl.ib !== undefined) add('slag', 'IB', 'I_B', sl.ib);
+        }
+        m.innerHTML = '<div><h3>Review before using</h3><p class="sub" style="margin:4px 0 12px">Read from ' + esc(fname) + ' on this device. Nothing is used until you tap Use these values.' + (ocr ? ' <b>Photo text can misread digits and decimal points. Check every value against the photo.</b>' : '') + '</p><div class="imp-list">' + rows.join('') + '</div><div class="row"><button class="btn ghost" id="repNo">Cancel</button><button class="btn" id="repOk">Use these values</button></div></div>';
+        document.body.appendChild(m);
+        m.querySelector('#repNo').onclick = () => m.remove();
+        m.addEventListener('click', (e) => { if (e.target === m) m.remove(); });
+        m.querySelector('#repOk').onclick = () => {
+            const rep = load(), nh = {}, ns = { ox: {}, ib: null };
+            m.querySelectorAll('.imp-row').forEach(r => {
+                const v = r.querySelector('.imp-v').value.trim(); if (v === '') return;
+                if (r.dataset.g === 'heat') nh[r.dataset.k] = v;
+                else if (r.dataset.k === 'IB') { const n = num(v); if (n !== null) ns.ib = n; }
+                else { const n = num(v); if (n !== null) ns.ox[r.dataset.k] = n; }
+            });
+            let filled = '';
+            if (Object.keys(nh).length) {
+                rep.heat = nh; const t = num(nh.tmetal);
+                if (t !== null && t > 0 && t < 1000 && window.els && els.total) { els.total.value = String(t); window.__mlFile = window.__mlFile || {}; window.__mlFile.total = 1; filled = ' Total charge planned set to ' + t + ' t.'; try { saveState(); } catch (e) {} try { render(); } catch (e) {} }
+            }
+            if (Object.keys(ns.ox).length) rep.slag = ns;
+            rep.ts = Date.now(); save(rep); draw(); m.remove();
+            const d = document.getElementById('impMsg'); if (d) d.textContent = 'Report values saved on this device.' + filled;
+        };
+    }
+    function init() {
+        draw();
+        // Import from photo buttons: Heat card and Advice (next to Log this heat)
+        const mk = (cls) => { const w = document.createElement('div'); w.className = 'rep-photo ' + (cls || ''); w.innerHTML = '<label class="btn ghost" style="min-height:56px">Import from photo<input type="file" accept="image/*" hidden></label>'; w.querySelector('input').addEventListener('change', (e) => window.MLImportFile && MLImportFile(e.target.files[0], e.target)); return w; };
+        const imp = document.getElementById('impCard');
+        if (imp) { const w = mk(); w.style.marginTop = '8px'; const btn = imp.querySelector('.imp-btn'); if (btn) btn.insertAdjacentElement('afterend', w.firstElementChild); }
+        const lb = document.getElementById('logBtn');
+        if (lb) lb.insertAdjacentElement('beforebegin', mk('rep-adv'));
+        if (lb) lb.addEventListener('click', () => { try { const rep = load(); if (!rep.heat && !rep.slag) return; const a = JSON.parse(localStorage.getItem('meltlab_hist') || '[]'); if (!a[0]) return; a[0].rep = { heat: rep.heat || null, slag: rep.slag || null }; const extra = []; if (rep.heat) extra.push('Heat report: ' + Object.keys(rep.heat).map(k => k + ' ' + rep.heat[k]).join(', ')); if (rep.slag) extra.push('Slag: ' + slagLine(rep.slag)); a[0].txt = (a[0].txt || '') + '\n' + extra.join('\n'); localStorage.setItem('meltlab_hist', JSON.stringify(a)); if (typeof drawH === 'function') drawH(); } catch (e) {} });
+    }
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else setTimeout(init, 0);
+    return { parse, review, draw, _slag: slag, _heat: heat };
+})();
 
 /* ---- Ask the assistant: optional, free cloud model, sent only on a tap ---- */
 (function () {
@@ -1764,9 +1902,49 @@ if (typeof module !== 'undefined') module.exports = MLFind;
   const sync = () => { box.hidden = note.hidden; }; new MutationObserver(sync).observe(note, { attributes: true, attributeFilter: ['hidden'] }); sync();
 })();
 
+// v3.24: folds, empty states, reading age, tap check
+(function () {
+  const $ = id => document.getElementById(id);
+  const mkFold = (title, keys, after, cls) => {
+    const ws = keys.map(k => $('w_' + k)).filter(Boolean); if (!ws.length || !after) return null;
+    const d = document.createElement('details'); d.className = 'ux-fold ' + (cls || ''); d.innerHTML = '<summary>' + title + '</summary><div class="ux-body"><div class="grid"></div></div>';
+    const g = d.querySelector('.grid'); ws.forEach(w => g.appendChild(w)); after.insertAdjacentElement('afterend', d); return d;
+  };
+  const hg = $('heatGrid'), og = $('o2Grid');
+  const sc = mkFold('Add scrap (optional)', ['basket'], hg);
+  const live = mkFold('Live readings (optional)', ['kwh', 'feed', 'o2Used', 'cInj'], og);
+  const eq = mkFold('Equipment (set once)', ['pwrLimit', 'jetsInstalled', 'jetMin', 'jetMax'], live || og);
+  // empty states for Advice and Reasoning until Get advice
+  let advised = false;
+  const gb = document.querySelector('#s_heat .btn[data-go="advice"]');
+  if (gb) gb.addEventListener('click', () => { advised = true; paint(); }, true);
+  const mkEmpty = (id, t) => { const s = $(id); if (!s) return; const c = document.createElement('div'); c.className = 'card ux-emp'; c.innerHTML = '<div class="imp-t">' + t + '</div><div class="imp-s">Enter the heat on the Heat tab, then tap Get advice. Nothing here is computed from placeholder numbers.</div><button class="btn" data-go="heat">Go to Heat</button>'; const h = s.querySelector('header'); (h || s.firstChild).insertAdjacentElement('afterend', c); };
+  function paint() {}
+  // reading age and tap check on Advice
+  let readAt = Date.now();
+  const ids = ['curC', 'temp', 'curMn', 'curSi', 'p', 's'].map(k => 'f_' + k);
+  ids.forEach(i => { const e = $(i); if (e) e.addEventListener('input', () => { readAt = Date.now(); upd(); }); });
+  const adv = $('s_advice'); const box = document.createElement('div'); box.className = 'card ux-tap'; box.id = 'uxTap';
+  if (adv) { const c = adv.querySelector('.ux-emptycard'); (c || adv.querySelector('header')).insertAdjacentElement('afterend', box); }
+  function upd() {
+    if (!adv || !advised) return;
+    let m; try { m = model(); } catch (e) { return; }
+    const min = Math.max(0, Math.round((Date.now() - readAt) / 60000)); const old = min >= 15;
+    const dc = m.c0 === null ? null : m.c0 - m.ct, dt = m.tAim - m.tNow;
+    const okC = dc !== null && dc <= 0, okT = dt <= 0;
+    const row = (l, ok, txt) => '<div class="ux-tr"><span class="ux-dot ' + (ok ? 'ok' : 'no') + '"></span><span>' + l + '</span><b>' + txt + '</b></div>';
+    box.innerHTML = '<div class="imp-t">Tap check</div>' + row('Carbon', okC, dc === null ? 'no reading' : (okC ? 'at or below target' : (Math.round(dc * 100) / 100) + '% above target')) + row('Temperature', okT, okT ? 'at or above tap aim' : Math.round(dt) + ' C below tap aim')
+      + '<div class="ux-ready ' + (okC && okT ? 'ok' : '') + '">' + (okC && okT ? 'Carbon and temperature meet the aim. Confirm with a fresh sample before tapping.' : 'Not ready to tap on these readings.') + '</div>'
+      + '<div class="ux-age ' + (old ? 'old' : '') + '">Readings entered ' + (min === 0 ? 'just now' : min + ' min ago') + (old ? '. Take a new sample and update them.' : '.') + '</div>';
+  }
+  setInterval(upd, 30000); heatListen();
+  function heatListen() { const h = $('s_heat'); if (h) { h.addEventListener('input', upd); } if (gb) gb.addEventListener('click', () => setTimeout(upd, 50)); }
+  const nav = document.querySelectorAll('.tab'); nav.forEach(t => t.addEventListener('click', () => setTimeout(upd, 50)));
+})();
+
 /* ---- Self-update: check on open, focus, return, reconnect and every 5 minutes; reload at a safe moment ---- */
 (function () {
-  const VER = '3.23';
+  const VER = '3.24';
   try {
     const seen = localStorage.getItem('meltlab_ver_seen');
     if (seen && seen !== VER) {
