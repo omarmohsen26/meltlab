@@ -288,6 +288,8 @@ html.ag-lock body>*:not(#authgate){visibility:hidden}
 .pf-h{display:flex;align-items:center;gap:10px}.pf-n{width:28px;height:28px;border-radius:50%;background:#FFB454;color:#1a1305;font-weight:800;display:inline-flex;align-items:center;justify-content:center}.pf.tap .pf-n{background:#3DDC84}
 .pf-t{font-size:22px;font-weight:800}.pf-w{font-size:14px;color:#FFB454;margin:4px 0 6px;font-variant-numeric:tabular-nums}
 .pf-r{display:flex;justify-content:space-between;gap:12px;padding:7px 0;border-top:1px solid rgba(255,255,255,.07);font-size:15px}.pf-r span{color:var(--muted,#A8ADB5)}.pf-r b{text-align:right;font-weight:600}
+.mat-old{color:#FFB454!important;font-weight:600}
+#matCard .row{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}#matCard .btn.sm{min-height:48px;width:auto;padding:0 14px}
 </style>
 </head>
 <body>
@@ -1043,12 +1045,17 @@ if (typeof module !== 'undefined') module.exports = MLFind;
             x.putImageData(d, 0, 0); return c;
         } catch (e) { return f; }
     }
+    async function ocrText(imgs) {
+        await loadLib('ocr');
+        const w = await Tesseract.createWorker('eng', 1, { workerPath: 'lib/ocr/worker.min.js', corePath: 'lib/ocr/', langPath: 'lib/ocr/', gzip: true, workerBlobURL: false, logger: (m) => { if (m.status === 'recognizing text') msg('Reading on this device: ' + Math.round(m.progress * 100) + '%'); else if (m.status) msg('Preparing the reader (first time only, a few MB) ...'); } });
+        let t = ''; for (const im of imgs) { const r = await w.recognize(im); t += r.data.text + '\n'; } await w.terminate(); return t;
+    }
     async function readFile(f) {
         const name = f.name.toLowerCase(); const found = [], seen = {}; let text = '', ocr = false;
         if (/\.(xlsx|xls)$/.test(name)) {
             await loadLib('xlsx');
             const wb = XLSX.read(await f.arrayBuffer(), { type: 'array' });
-            wb.SheetNames.forEach(sn => { const rows = XLSX.utils.sheet_to_json(wb.Sheets[sn], { header: 1, raw: true, defval: '' }); text += rows.slice(0, 30).map(r => r.join(' | ')).join('\n') + '\n'; MLFind.fromRows(rows, found, seen, sn); });
+            wb.SheetNames.forEach(sn => { const rows = XLSX.utils.sheet_to_json(wb.Sheets[sn], { header: 1, raw: true, defval: '' }); text += rows.slice(0, 120).map(r => r.join(' | ')).join('\n') + '\n'; MLFind.fromRows(rows, found, seen, sn); });
         } else if (/\.(csv|tsv|txt)$/.test(name)) {
             text = await f.text();
             if (/\.(csv|tsv)$/.test(name)) { const d = /\t/.test(text.split('\n')[0]) ? '\t' : (text.split('\n')[0].split(';').length > text.split('\n')[0].split(',').length ? ';' : ','); const rows = text.split(/\r?\n/).filter(Boolean).map(l => l.split(d).map(c => { c = c.trim().replace(/^"|"$/g, ''); const n = MLFind.parseNum(c); return (n !== null && /^-?[\d.,]+$/.test(c)) ? n : c; })); MLFind.fromRows(rows, found, seen, 'CSV'); }
@@ -1067,13 +1074,14 @@ if (typeof module !== 'undefined') module.exports = MLFind;
                 Object.keys(byY).map(Number).sort((a, b) => b - a).forEach(y => lines.push(byY[y].sort((a, b) => a[0] - b[0]).map(x => x[1]).join(' ').trim()));
             }
             text = lines.join('\n');
-            if (!text.replace(/\s/g, '')) throw new Error('This PDF has no text layer (probably a scan). Scans and photos need OCR, which is the next release. Use Excel, Word or a text PDF for now.');
+            if (!text.replace(/\s/g, '')) {
+                const cv = []; for (let p = 1; p <= Math.min(pdf.numPages, 4); p++) { const pg = await pdf.getPage(p); const vp = pg.getViewport({ scale: 2.2 }); const c = document.createElement('canvas'); c.width = vp.width; c.height = vp.height; await pg.render({ canvasContext: c.getContext('2d'), viewport: vp }).promise; cv.push(c); }
+                text = await ocrText(cv); ocr = true; lines.length = 0; text.split(/\r?\n/).forEach(l => lines.push(l));
+            }
             MLFind.fromLines(lines, found, seen);
+            if (ocr) found.forEach(o => { o.note = (o.note ? o.note + '; ' : '') + 'read by OCR, check the digits'; if (o.how !== 'check') o.how = 'ocr'; });
         } else if (/\.(png|jpe?g|webp|bmp|gif)$/.test(name) || (f.type || '').indexOf('image/') === 0) {
-            await loadLib('ocr');
-            const w = await Tesseract.createWorker('eng', 1, { workerPath: 'lib/ocr/worker.min.js', corePath: 'lib/ocr/', langPath: 'lib/ocr/', gzip: true, workerBlobURL: false, logger: (m) => { if (m.status === 'recognizing text') msg('Reading the photo on this device: ' + Math.round(m.progress * 100) + '%'); else if (m.status) msg('Preparing the reader (first time only, a few MB) ...'); } });
-            const r = await w.recognize(await prep(f)); await w.terminate();
-            text = r.data.text; ocr = true;
+            text = await ocrText([await prep(f)]); ocr = true;
             MLFind.fromLines(text.split(/\r?\n/), found, seen);
             found.forEach(o => { o.note = (o.note ? o.note + '; ' : '') + 'read by OCR, check the digits'; if (o.how !== 'check') o.how = 'ocr'; });
         } else throw new Error('This file type is not supported. Use .xlsx, .csv, .docx, .txt, a PDF or a photo.');
@@ -1138,10 +1146,33 @@ const MLReport = (function () {
         if (n >= 4 && got.CaO !== undefined && got.SiO2 !== undefined) return { kind: 'slag', ox: got, ib };
         return null;
     }
+
+    const MAT = { lime: 'Lime', dolomite: 'Dolomite', dri: 'DRI', scrap: 'Scrap' };
+    const MF = { lime: [['CaO', 'CaO (%)'], ['MgO', 'MgO (%)'], ['SiO2', 'SiO2 (%)']], dolomite: [['CaO', 'CaO (%)'], ['MgO', 'MgO (%)'], ['SiO2', 'SiO2 (%)']], dri: [['Met', 'Metallization (%)'], ['C', 'Carbon (%)'], ['SiO2', 'SiO2 gangue (%)']], scrap: [['Yield', 'Yield (%)']] };
+    const RNG = { 'lime.CaO': [60, 100], 'lime.MgO': [0, 10], 'lime.SiO2': [0, 8], 'dolomite.CaO': [20, 70], 'dolomite.MgO': [10, 45], 'dolomite.SiO2': [0, 8], 'dri.Met': [70, 100], 'dri.C': [0, 5], 'dri.SiO2': [0, 8], 'scrap.Yield': [60, 100] };
+    function matParse(lines) {
+        const out = {}; let cur = null, cnt = 0, kinds = {};
+        lines.forEach(l => {
+            const s = String(l).replace(/\s+/g, ' ').trim(); if (!s) return;
+            const low = s.toLowerCase(); let mk = null;
+            if (/\blime\b|\bquicklime\b/.test(low) && !/dolo/.test(low)) mk = 'lime'; else if (/dolo/.test(low)) mk = 'dolomite'; else if (/\bdri\b|\bsponge\b|\bhbi\b/.test(low)) mk = 'dri'; else if (/\bscrap\b/.test(low)) mk = 'scrap';
+            if (mk) { cur = mk; kinds[mk] = 1; }
+            // all oxide pairs on the line, in order
+            const re = /(CaO|Ca0|SiO2|Si02|MgO|Mg0|Al2O3|Fe2O3|C|Carbon|Metalli[sz]ation|Met|Yield|Fe)\s*[:=|]?\s*(-?\d+(?:[.,]\d+)?)/gi; let m;
+            while ((m = re.exec(s))) {
+                if (!cur) continue; const k0 = m[1].toLowerCase().replace(/0/g, 'o'); let key = null;
+                if (k0 === 'cao') key = 'CaO'; else if (k0 === 'sioz' || k0 === 'sio2') key = 'SiO2'; else if (k0 === 'mgo') key = 'MgO'; else if (/^metal/.test(k0) || k0 === 'met') key = 'Met'; else if (k0 === 'c' || k0 === 'carbon') key = 'C'; else if (k0 === 'yield') key = 'Yield';
+                if (!key) continue; if (!MF[cur].some(x => x[0] === key)) continue;
+                const v = parseFloat(m[2].replace(',', '.')); if (isNaN(v) || v < 0 || v > 100) continue;
+                out[cur] = out[cur] || {}; if (out[cur][key] === undefined) { out[cur][key] = v; cnt++; }
+            }
+        });
+        return cnt >= 2 && Object.keys(kinds).length >= 1 ? { kind: 'mat', m: out } : null;
+    }
     function heat(lines) {
         const got = {}; let last = null;
         lines.forEach(l => {
-            const s = String(l).replace(/\s+/g, ' ').trim(); if (!s) return;
+            let s = String(l).replace(/\s+/g, ' ').trim(); if (!s) return; if (!/[:;]/.test(s)) s = s.replace(/\s*\|\s*/, ' : ');
             const m = s.match(/^(.{1,26}?)\s*[:;]\s*(.*)$/);
             if (!m) { if (last === 'delays' && got.delays !== undefined && !/^[A-Za-z .\-]{1,12}$/.test(s) ) got.delays += ' ' + s; return; }
             const lab = m[1].trim(), val = m[2].trim();
@@ -1154,6 +1185,8 @@ const MLReport = (function () {
     }
     function parse(text) {
         const lines = String(text).split(/\r?\n/);
+        const words = ['lime', 'dolo', 'dri', 'scrap'].filter(w => new RegExp('\\b' + w, 'i').test(text)).length;
+        if (words >= 2) { const mt = matParse(lines); if (mt) return mt; }
         const h = heat(lines), s = slag(lines);
         if (h && s) return Object.assign({}, h, { slag: s });
         return h || s || null;
@@ -1192,14 +1225,18 @@ const MLReport = (function () {
         c.innerHTML = h; anchor.insertAdjacentElement('afterend', c);
         c.querySelector('#repClear').onclick = () => { localStorage.removeItem(KEY); draw(); };
     }
+    function chk(key, v) { const g = RNG[key]; if (!g || (v >= g[0] && v <= g[1])) return v; if (v / 10 >= g[0] && v / 10 <= g[1]) { CHK[key] = 'read as ' + v + ', decimal point probably missing'; return Math.round(v) / 10; } CHK[key] = 'outside the usual range, check the digits'; return v; }
+    let CHK = {};
     function review(rp, fname, ocr) {
+        CHK = {};
         const m = document.createElement('div'); m.className = 'modal'; m.id = 'impModal';
         const rows = [];
-        const add = (grp, k, label, val, map) => rows.push('<div class="imp-row" data-g="' + grp + '" data-k="' + k + '"' + (map ? ' data-map="' + map + '"' : '') + '><div class="imp-c"><div class="imp-l">' + esc(label) + (map ? ' <span class="pill">fills ' + esc(map) + '</span>' : '') + '</div></div><input class="imp-v" value="' + esc(val) + '" aria-label="' + esc(label) + '"></div>');
+        const add = (grp, k, label, val, map) => rows.push('<div class="imp-row" data-g="' + grp + '" data-k="' + k + '"' + (map ? ' data-map="' + map + '"' : '') + '><div class="imp-c"><div class="imp-l">' + esc(label) + (map ? ' <span class="pill">fills ' + esc(map) + '</span>' : '') + (CHK[k] ? ' <span class="pill over">CHECK</span>' : '') + '</div>' + (CHK[k] ? '<div class="imp-src">' + esc(CHK[k]) + '</div>' : '') + '</div><input class="imp-v" value="' + esc(val) + '" aria-label="' + esc(label) + '"></div>');
         let sl = rp.slag || (rp.kind === 'slag' ? rp : null);
         if (rp.kind === 'heat') {
             HEAT.forEach(h => { if (rp.f[h[0]] !== undefined) add('heat', h[0], h[1], rp.f[h[0]], h[0] === 'tmetal' ? 'Total charge planned' : ''); });
         }
+        if (rp.kind === 'mat') Object.keys(MAT).forEach(k => { if (rp.m[k]) MF[k].forEach(x => { if (rp.m[k][x[0]] !== undefined) add('mat', k + '.' + x[0], MAT[k] + ' ' + x[1], chk(k + '.' + x[0], rp.m[k][x[0]]), (k === 'lime' && x[0] === 'CaO') ? 'lime CaO' : (k === 'dri' && x[0] === 'SiO2') ? 'DRI gangue' : ''); }); });
         if (sl) {
             OX.forEach(o => { if (sl.ox[o[0]] !== undefined) add('slag', o[0], o[0] + ' (%)', sl.ox[o[0]]); });
             if (sl.ib !== null && sl.ib !== undefined) add('slag', 'IB', 'I_B', sl.ib);
@@ -1211,12 +1248,15 @@ const MLReport = (function () {
         m.querySelector('#repOk').onclick = () => {
             const rep = load(), nh = {}, ns = { ox: {}, ib: null };
             m.querySelectorAll('.imp-row').forEach(r => {
+                if (r.dataset.g === 'mat') return;
                 const v = r.querySelector('.imp-v').value.trim(); if (v === '') return;
                 if (r.dataset.g === 'heat') nh[r.dataset.k] = v;
                 else if (r.dataset.k === 'IB') { const n = num(v); if (n !== null) ns.ib = n; }
                 else { const n = num(v); if (n !== null) ns.ox[r.dataset.k] = n; }
             });
             let filled = '';
+            const mats = {}; m.querySelectorAll('.imp-row[data-g=mat]').forEach(r2 => { const v = num(r2.querySelector('.imp-v').value); if (v === null) return; const [a, b2] = r2.dataset.k.split('.'); (mats[a] = mats[a] || {})[b2] = v; });
+            if (Object.keys(mats).length) { MLMat.save(mats); filled += ' Daily materials updated.'; }
             if (Object.keys(nh).length) {
                 rep.heat = nh; const t = num(nh.tmetal);
                 if (t !== null && t > 0 && t < 1000 && window.els && els.total) { els.total.value = String(t); window.__mlFile = window.__mlFile || {}; window.__mlFile.total = 1; filled = ' Total charge planned set to ' + t + ' t.'; try { saveState(); } catch (e) {} try { render(); } catch (e) {} }
@@ -1238,6 +1278,44 @@ const MLReport = (function () {
     }
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else setTimeout(init, 0);
     return { parse, review, draw, _slag: slag, _heat: heat };
+})();
+
+const MLMat = (function () {
+    const KEY = 'meltlab_mat';
+    const MAT = { lime: 'Lime', dolomite: 'Dolomite', dri: 'DRI', scrap: 'Scrap' };
+    const MF = { lime: [['CaO', 'CaO (%)'], ['MgO', 'MgO (%)'], ['SiO2', 'SiO2 (%)']], dolomite: [['CaO', 'CaO (%)'], ['MgO', 'MgO (%)'], ['SiO2', 'SiO2 (%)']], dri: [['Met', 'Metallization (%)'], ['C', 'Carbon (%)'], ['SiO2', 'SiO2 gangue (%)']], scrap: [['Yield', 'Yield (%)']] };
+    const esc = (t) => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+    const day = (t) => new Date(t).toISOString().slice(0, 10);
+    const load = () => { try { return JSON.parse(localStorage.getItem(KEY) || 'null') || { vals: {}, at: 0 }; } catch (e) { return { vals: {}, at: 0 }; } };
+    function ageDays(at) { if (!at) return null; const a = new Date(); a.setHours(0, 0, 0, 0); const b = new Date(at); b.setHours(0, 0, 0, 0); return Math.round((a - b) / 86400000); }
+    function fire(id, v) { const e = document.getElementById(id); if (e) { e.value = v; e.dispatchEvent(new Event('input', { bubbles: true })); } }
+    function applyCalc(v) {
+        if (v.lime && v.lime.CaO > 0) fire('f_limeCao', Math.round(v.lime.CaO / 100 * 1000) / 1000);
+        if (v.dri && v.dri.SiO2 >= 0 && v.dri.SiO2 !== undefined) fire('f_driGangue', v.dri.SiO2);
+    }
+    function save(mats, keepDate) { const o = load(); Object.keys(mats).forEach(k => { o.vals[k] = Object.assign({}, o.vals[k] || {}, mats[k]); }); o.at = keepDate ? o.at : Date.now(); try { localStorage.setItem(KEY, JSON.stringify(o)); } catch (e) {} applyCalc(o.vals); draw(); }
+    function confirmToday() { const o = load(); o.at = Date.now(); try { localStorage.setItem(KEY, JSON.stringify(o)); } catch (e) {} draw(); }
+    function age(o) { const d = ageDays(o.at); if (d === null) return { t: 'Not set yet', old: true }; return d === 0 ? { t: 'Updated today', old: false } : { t: 'Updated ' + (d === 1 ? 'yesterday' : d + ' days ago') + ' (' + day(o.at) + ')', old: true }; }
+    function draw() {
+        const old = document.getElementById('matCard'); if (old) old.remove();
+        const anchor = document.getElementById('uxClock') || document.getElementById('impCard'); if (!anchor) return;
+        const o = load(), a = age(o); const c = document.createElement('div'); c.className = 'card'; c.id = 'matCard';
+        const sum = Object.keys(MAT).filter(k => o.vals[k]).map(k => '<div class="rep-r"><b>' + MAT[k] + '</b> ' + MF[k].filter(x => o.vals[k][x[0]] !== undefined).map(x => esc(x[1].replace(' (%)', '')) + ' ' + o.vals[k][x[0]]).join(' | ') + '</div>').join('');
+        c.innerHTML = '<div class="imp-t">Daily materials</div><div class="imp-s ' + (a.old ? 'mat-old' : '') + '">' + a.t + (a.old && o.at ? '. Same as today? Tap Same as before.' : '') + '</div>' + (sum || '<div class="imp-s">Add the lime, dolomite, DRI and scrap analyses. Lime CaO and DRI gangue feed the slag and lime calculation.</div>')
+            + '<div class="row"><button class="btn ghost sm" id="matEdit">Edit</button>' + (o.at && a.old ? '<button class="btn sm" id="matSame">Same as before</button>' : '') + '<label class="btn ghost sm">Import from photo or file<input type="file" accept="image/*,.pdf,.xlsx,.xls,.docx,.csv,.txt" hidden id="matFile"></label></div>';
+        anchor.insertAdjacentElement('afterend', c);
+        c.querySelector('#matEdit').onclick = edit; const sm = c.querySelector('#matSame'); if (sm) sm.onclick = confirmToday;
+        c.querySelector('#matFile').addEventListener('change', e => window.MLImportFile && MLImportFile(e.target.files[0], e.target));
+    }
+    function edit() {
+        const o = load(), m = document.createElement('div'); m.className = 'modal'; m.id = 'matModal';
+        m.innerHTML = '<div><h3>Daily materials</h3><p class="sub" style="margin:4px 0 12px">Values from the last update are filled in. Change only what differs today.</p><div class="imp-list">' + Object.keys(MAT).map(k => '<div class="imp-t" style="margin-top:10px">' + MAT[k] + '</div>' + MF[k].map(x => '<div class="imp-row" data-k="' + k + '.' + x[0] + '"><div class="imp-c"><div class="imp-l">' + x[1] + ((k === 'lime' && x[0] === 'CaO') ? ' <span class="pill">used</span>' : (k === 'dri' && x[0] === 'SiO2') ? ' <span class="pill">used</span>' : '') + '</div></div><input class="imp-v" inputmode="decimal" value="' + esc((o.vals[k] && o.vals[k][x[0]] !== undefined) ? o.vals[k][x[0]] : '') + '"></div>').join('')).join('') + '</div><div class="row"><button class="btn ghost" id="matNo">Cancel</button><button class="btn" id="matOk">Save for today</button></div></div>';
+        document.body.appendChild(m); m.querySelector('#matNo').onclick = () => m.remove(); m.addEventListener('click', e => { if (e.target === m) m.remove(); });
+        m.querySelector('#matOk').onclick = () => { const mats = {}; m.querySelectorAll('.imp-row').forEach(r => { const v = parseFloat(String(r.querySelector('.imp-v').value).replace(',', '.')); if (isNaN(v)) return; const [a, b] = r.dataset.k.split('.'); (mats[a] = mats[a] || {})[b] = v; }); m.remove(); save(mats); };
+    }
+    function init() { draw(); const o = load(); if (o.at) applyCalc(o.vals); }
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => setTimeout(init, 50)); else setTimeout(init, 50);
+    return { save, draw, load };
 })();
 
 /* ---- Ask the assistant: optional, free cloud model, sent only on a tap ---- */
@@ -2057,7 +2135,7 @@ const MLReport = (function () {
 
 /* ---- Self-update: check on open, focus, return, reconnect and every 5 minutes; reload at a safe moment ---- */
 (function () {
-  const VER = '3.25';
+  const VER = '3.26';
   try {
     const seen = localStorage.getItem('meltlab_ver_seen');
     if (seen && seen !== VER) {
