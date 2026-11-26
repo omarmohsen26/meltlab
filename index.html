@@ -303,6 +303,7 @@ body.paused #uxClock,body.paused #uxSmp,body.paused #uxProf{opacity:.55}body.pau
 .ux-undo{bottom:166px}body:has(.ux-undo) #s_heat .btn[data-go=advice],body:has(.ux-undo) .btn[data-go=advice]{visibility:visible}.ux-xchk{border:1px solid #FFB454}
 .screen{padding-bottom:calc(210px + var(--toast-h,0px))!important}.ux-undo{bottom:166px}
 .ux-undo{top:max(12px,env(safe-area-inset-top));bottom:auto!important}.screen{padding-bottom:210px!important}
+.ux-undo{top:auto!important;bottom:164px!important;padding:4px 6px 4px 14px;min-height:0;font-size:14px}.ux-undo button{min-height:40px;padding:0 16px}
 </style>
 </head>
 <body>
@@ -2091,6 +2092,7 @@ const MLRef = (function () {
   const target = k => k === 'spec' ? spec : k === 'chem' ? (document.getElementById('heatGrid') || chem) : go;
   bar.addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; const t = target(b.dataset.t); if (t) t.scrollIntoView({ behavior: 'smooth', block: 'center' }); });
   const note = document.createElement('p'); note.className = 'sub ux-skip'; note.id = 'uxSkip'; note.textContent = 'No grade unlocked? You can skip this step and type the targets below by hand.'; if (spec) spec.insertAdjacentElement('afterend', note);
+  let advDone = false; go.addEventListener('click', () => { advDone = true; state(); }); 
   function state() {
     const sp = document.getElementById('specBox') || spec; const locked = !!(sp && /locked/i.test(sp.textContent) && sp.querySelector('input'));
     const vals = chem ? [...chem.querySelectorAll('input')] : [];
@@ -2098,11 +2100,11 @@ const MLRef = (function () {
     const [s1, s2, s3] = bar.querySelectorAll('button');
     s1.classList.toggle('done', !locked); { const t1 = locked ? '1' : '\u2713', i1 = s1.querySelector('i'); if (i1.textContent !== t1) i1.textContent = t1; }
     s2.classList.toggle('done', !!filled); { const t2 = filled ? '\u2713' : '2', i2 = s2.querySelector('i'); if (i2.textContent !== t2) i2.textContent = t2; }
-    s3.classList.toggle('now', !!filled && (!locked || true)); { const sp3 = s3.querySelector('span'), t3 = filled ? 'Next: Advice' : 'Advice'; if (sp3 && sp3.textContent !== t3) sp3.textContent = t3; }
+    const nxt = !!filled && !advDone; s3.classList.toggle('now', nxt); { const sp3 = s3.querySelector('span'), t3 = nxt ? 'Next: Advice' : 'Advice'; if (sp3 && sp3.textContent !== t3) sp3.textContent = t3; }
     note.hidden = !locked;
     heat.classList.toggle('ux-locked', locked);
   }
-  heat.addEventListener('input', state); heat.addEventListener('change', state);
+  heat.addEventListener('input', () => { advDone = false; state(); }); heat.addEventListener('change', () => { advDone = false; state(); });
   if (spec) new MutationObserver(state).observe(spec.parentNode, { childList: true, subtree: true }); setTimeout(state, 2500);
   state(); setTimeout(state, 800);
 })();
@@ -2214,7 +2216,7 @@ const MLRef = (function () {
     card.innerHTML = h; wire();
   }
   let utm = null;
-  function undo(msg, fn, spec) { window.__mlSpec = spec || null; let t = document.getElementById('uxUndo'); if (t) t.remove(); t = document.createElement('div'); t.id = 'uxUndo'; t.className = 'ux-undo'; t.innerHTML = '<span>' + msg + '</span><button type="button">Undo</button>'; document.body.appendChild(t); t.querySelector('button').onclick = () => { clearTimeout(utm); t.remove(); fn(); }; clearTimeout(utm); utm = setTimeout(() => t.remove(), 10000); try { if (navigator.vibrate) navigator.vibrate([25]); } catch (e) {} }
+  function undo(msg, fn, spec) { window.__mlSpec = spec || null; let t = document.getElementById('uxUndo'); if (t) t.remove(); t = document.createElement('div'); t.id = 'uxUndo'; t.className = 'ux-undo'; t.innerHTML = '<span>' + msg + '</span><button type="button">Undo</button>'; document.body.appendChild(t); t.querySelector('button').onclick = () => { clearTimeout(utm); t.remove(); fn(); }; clearTimeout(utm); utm = setTimeout(() => t.remove(), 5000); try { if (navigator.vibrate) navigator.vibrate([25]); } catch (e) {} }
   // keep the screen awake and buzz when the tap window opens
   let wl = null; async function wake() { try { if (S.t0 && 'wakeLock' in navigator && !wl) { wl = await navigator.wakeLock.request('screen'); wl.addEventListener('release', () => { wl = null; }); } } catch (e) {} }
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') wake(); });
@@ -2321,7 +2323,7 @@ const MLRef = (function () {
     const t = $('uxUndo'); if (!t || t.dataset.sw) return; t.dataset.sw = 1;
     const msg = (t.querySelector('span') || {}).textContent || 'Change', spec = window.__mlSpec;
     if (curH !== heatId()) { L = []; curH = heatId(); }
-    if (spec) { const had = L.some(e => !e.used); L.unshift({ msg, at: Date.now(), used: false, spec }); saveL(); renderLog(); if (had) { const n = document.createElement('div'); n.className = 'ux-undo-note'; n.textContent = 'Older changes are in Recent changes on the Heat tab'; t.querySelector('span').appendChild(n); } }
+    if (spec) { const had = L.some(e => !e.used); L.unshift({ msg, at: Date.now(), used: false, spec }); saveL(); renderLog();  }
     document.documentElement.style.setProperty('--toast-h', (t.offsetHeight + 12) + 'px');
     let x0 = 0, y0 = 0; t.addEventListener('touchstart', e => { x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; }, { passive: true });
     t.addEventListener('touchend', e => { const dx = Math.abs(e.changedTouches[0].clientX - x0), dy = Math.abs(e.changedTouches[0].clientY - y0); if (dx > 60 && dx > 2 * dy) t.remove(); }, { passive: true });
@@ -2333,7 +2335,7 @@ const MLRef = (function () {
   window.__mlLogAdd = (msg, spec) => { if (curH !== heatId()) { L = []; curH = heatId(); } L.unshift({ msg, at: Date.now(), used: false, spec }); saveL(); renderLog(); };
   function renderLog() {
     if (!L.length) { lg.style.display = 'none'; return; } lg.style.display = '';
-    lg.innerHTML = '<div class="ck-h">Recent changes (this heat)</div>' + L.map((e, i) => i >= 3 && !showAll ? '' : '<div class="ck-row"><span>' + e.msg + ' <span class="ck-basis">' + new Date(e.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + '</span></span>' + (e.used ? '<span class="pill">undone</span>' : '<button class="btn ghost sm" data-i="' + i + '">Undo</button>') + '</div>').join('');
+    lg.innerHTML = '<div class="ck-h">Recent changes (this heat), older ones stay here</div>' + L.map((e, i) => i >= 3 && !showAll ? '' : '<div class="ck-row"><span>' + e.msg + ' <span class="ck-basis">' + new Date(e.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + '</span></span>' + (e.used ? '<span class="pill">undone</span>' : '<button class="btn ghost sm" data-i="' + i + '">Undo</button>') + '</div>').join('');
     if (L.length > 3) { const m = document.createElement('button'); m.className = 'btn ghost sm'; m.textContent = showAll ? 'Show fewer' : 'Show all (' + L.length + ')'; m.onclick = () => { showAll = !showAll; renderLog(); }; lg.appendChild(m); }
     lg.querySelectorAll('button[data-i]').forEach(b => b.onclick = () => { const e = L[+b.dataset.i]; if (e && !e.used && window.__mlUndo && window.__mlUndo[e.spec.k]) { e.used = true; window.__mlUndo[e.spec.k](e.spec.v); saveL(); renderLog(); } });
   }
@@ -2388,7 +2390,7 @@ const MLRef = (function () {
 
 /* ---- Self-update: check on open, focus, return, reconnect and every 5 minutes; reload at a safe moment ---- */
 (function () {
-  const VER = '3.35';
+  const VER = '3.36';
   try {
     const seen = localStorage.getItem('meltlab_ver_seen');
     if (seen && seen !== VER) {
