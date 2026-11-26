@@ -376,6 +376,16 @@ div.row:has(#matEdit){display:flex;gap:10px;align-items:stretch}
 #uxGrp input[type=number],#uxGrp input[type=text],#uxGrp input:not([type]){background:rgba(255,255,255,.08)!important;border:1px solid rgba(255,255,255,.25)!important;border-radius:12px!important;padding:10px 12px!important;min-height:48px;font-size:18px;color:inherit;width:100%;box-sizing:border-box;margin-top:6px}
 html:not(.night) #uxGrp input[type=number],html:not(.night) #uxGrp input[type=text]{background:#fff!important;border-color:#bbb!important}
 #uxGrp .ck-row{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.ux-sheet .sh-i{width:100%;box-sizing:border-box;min-height:52px;font-size:18px;padding:10px 12px;margin:0 0 14px;border-radius:12px;border:1px solid rgba(128,128,128,.5);background:rgba(255,255,255,.08);color:inherit;font-family:inherit}
+html:not(.night) .ux-sheet .sh-i{background:#fff;color:#1b1b1b}
+.ux-tri .tri-wy{display:flex;gap:8px;margin:10px 0 8px}.ux-tri .tri-wy .btn{flex:1;min-height:48px;padding:6px 4px;font-size:14px}
+.ux-delta .dl-r{display:grid;grid-template-columns:1.2fr 1fr 1fr;gap:2px 8px;align-items:baseline;padding:9px 0;border-top:1px solid rgba(128,128,128,.25);font-size:16px}
+.ux-delta .dl-r span{grid-row:1;font-weight:600}.ux-delta .dl-r b{grid-row:1;text-align:right}.ux-delta .dl-r i{grid-row:1;text-align:right;font-style:normal;font-weight:700}
+.ux-delta .dl-r em{grid-column:1 / 4;font-style:normal;font-size:13px;opacity:.75}
+.ux-delta .dl-r i.u{color:#FFB454}.ux-delta .dl-r i.d{color:#7cc4ff}.ux-delta .dl-r i.z{opacity:.7}
+html:not(.night) .ux-delta .dl-r i.u{color:#9a5a00}html:not(.night) .ux-delta .dl-r i.d{color:#0b5d99}
+.ux-sheet .sh-a .btn.ghost{color:#1b1b1b;background:transparent;border:2px solid #7a6a50;font-weight:700}
+html.night .ux-sheet .sh-a .btn.ghost{color:#fff;border-color:#8a96a3}
 </style>
 </head>
 <body>
@@ -890,8 +900,8 @@ function handoverText(m) {
 }
 function shareText(txt, btn) {
     const done = () => { const o = btn.textContent; btn.textContent = 'Copied'; setTimeout(() => { btn.textContent = o; }, 1500); };
-    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(done, () => window.prompt('Copy this text', txt));
-    else window.prompt('Copy this text', txt);
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(done, () => window.__mlSheet('Copy this text', txt, [{ l: 'OK', v: 'ok', p: 1 }]));
+    else window.__mlSheet('Copy this text', txt, [{ l: 'OK', v: 'ok', p: 1 }]);
 }
 function drawH() {
     const h = loadH(), el = document.getElementById('histList');
@@ -901,7 +911,7 @@ function drawH() {
         + (x.txt ? '<details class="hist-d"><summary>Full plan</summary><pre>' + esc(x.txt) + '</pre></details>' : '')
         + '<div class="row">' + (x.inp ? '<button class="btn ghost sm" data-load="' + i + '">Load inputs</button>' : '') + (x.txt ? '<button class="btn ghost sm" data-copy="' + i + '">Copy</button>' : '') + '<button class="btn ghost sm" data-del="' + i + '">Delete</button></div></div>').join('')
         : '<p class="sub" style="margin:18px 4px">No heats yet. Get advice for a heat, then tap Log this heat on the Advice screen to keep it here. Entries stay on this device only.</p><button class="btn" data-go="heat">Start a heat</button>';
-    el.querySelectorAll('[data-del]').forEach(b => b.addEventListener('click', () => { if (!confirm('Delete this heat?')) return; const a = loadH(); a.splice(+b.dataset.del, 1); saveH(a); drawH(); }));
+    el.querySelectorAll('[data-del]').forEach(b => b.addEventListener('click', async () => { if ((await window.__mlSheet('Delete this heat?', 'This logged heat is deleted from this device.', [{ l: 'Keep', v: 'no', p: 1 }, { l: 'Delete', v: 'yes' }])) !== 'yes') return; const a = loadH(); a.splice(+b.dataset.del, 1); saveH(a); drawH(); }));
     el.querySelectorAll('[data-copy]').forEach(b => b.addEventListener('click', () => shareText(loadH()[+b.dataset.copy].txt, b)));
     el.querySelectorAll('[data-load]').forEach(b => b.addEventListener('click', () => { const x = loadH()[+b.dataset.load]; Object.keys(els).forEach(k => { if (x.inp[k] !== undefined) els[k].value = x.inp[k]; }); render(); go('heat'); }));
 }
@@ -911,7 +921,7 @@ document.getElementById('logBtn').addEventListener('click', () => {
     saveH(a); drawH(); go('history');
 });
 document.getElementById('copyBtn').addEventListener('click', (e) => shareText(handoverText(model()), e.currentTarget));
-document.getElementById('clearH').addEventListener('click', () => { if (confirm('Delete all logged heats on this device?')) { localStorage.removeItem('meltlab_hist'); drawH(); } });
+document.getElementById('clearH').addEventListener('click', async () => { if (!((await window.__mlSheet('Delete all logged heats?', 'All logged heats on this device are deleted.', [{ l: 'Keep', v: 'no', p: 1 }, { l: 'Delete all', v: 'yes' }])) !== 'yes')) { localStorage.removeItem('meltlab_hist'); drawH(); } });
 drawH();
 
 document.querySelectorAll('[data-go]').forEach(b => b.addEventListener('click', () => go(b.dataset.go)));
@@ -940,8 +950,8 @@ function setSeg(id, v) { [...document.getElementById(id).children].forEach(x => 
     } catch (e) {}
 })();
 render();
-document.getElementById('resetConst').addEventListener('click', () => { if (!confirm('Reset all constants to defaults?')) return; FIELDS.consts.forEach(([k]) => { els[k].value = DEF[k]; }); render(); });
-document.getElementById('wipeAll').addEventListener('click', () => { if (!confirm('Erase saved inputs, constants and logged heats on this device?')) return; ['meltlab_state', 'meltlab_hist', 'meltlab_seen'].forEach(k => localStorage.removeItem(k)); location.reload(); });
+document.getElementById('resetConst').addEventListener('click', async () => { if ((await window.__mlSheet('Reset constants?', 'All constants go back to defaults.', [{ l: 'Keep', v: 'no', p: 1 }, { l: 'Reset', v: 'yes' }])) !== 'yes') return; FIELDS.consts.forEach(([k]) => { els[k].value = DEF[k]; }); render(); });
+document.getElementById('wipeAll').addEventListener('click', async () => { if ((await window.__mlSheet('Erase saved data?', 'Saved inputs, constants and logged heats on this device are erased.', [{ l: 'Keep', v: 'no', p: 1 }, { l: 'Erase', v: 'yes' }])) !== 'yes') return; ['meltlab_state', 'meltlab_hist', 'meltlab_seen'].forEach(k => localStorage.removeItem(k)); location.reload(); });
 /* ---- first-run intro ---- */
 function showIntro() {
     const d = document.createElement('div'); d.className = 'modal';
@@ -1514,7 +1524,7 @@ const MLRef = (function () {
         c.innerHTML = '<div class="imp-t">Reference constants</div><div class="imp-s">' + (ref ? esc(ref.label || 'Reference file') + ' imported ' + new Date(ref._at || Date.now()).toLocaleDateString('en-GB') : 'Import a reference file to set the melting profile constants. It is read on this phone and never uploaded.') + '</div><div class="imp-msg" id="refMsg" role="status"></div><div class="row"><label class="btn ghost sm">Import file<input type="file" id="refFile" accept=".json,application/json" hidden></label>' + (ref ? '<button class="btn ghost sm ux-danger" id="refClear">Clear</button>' : '') + '</div>';
         anchor.insertAdjacentElement('afterend', c);
         c.querySelector('#refFile').addEventListener('change', e => { const f = e.target.files[0]; e.target.value = ''; importFile(f); });
-        const cl = c.querySelector('#refClear'); if (cl) cl.onclick = () => { if (!confirm('Remove the imported reference constants? Settings keep their current values.')) return; localStorage.removeItem(KEY); draw(); try { if (window.__mlProf) window.__mlProf(); } catch (e) {} };
+        const cl = c.querySelector('#refClear'); if (cl) cl.onclick = async () => { if ((await window.__mlSheet('Remove reference constants?', 'The imported reference constants are removed. Settings keep their current values.', [{ l: 'Keep', v: 'no', p: 1 }, { l: 'Remove', v: 'yes' }])) !== 'yes') return; localStorage.removeItem(KEY); draw(); try { if (window.__mlProf) window.__mlProf(); } catch (e) {} };
     }
     function init() { draw(); setInterval(() => { if (!fld('refCard') && fld('agFiles')) draw(); }, 1500); }
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => setTimeout(init, 80)); else setTimeout(init, 80);
@@ -1860,7 +1870,7 @@ const MLRef = (function () {
     ev.target.value = ''; drawImgs();
   };
   drawImgs();
-  sc.querySelector('#pmClear').onclick = () => { if (!confirm('Erase the plant model from this device?')) return; M = {}; try { indexedDB.deleteDatabase('meltlab_docs'); } catch (e) {} sc.querySelectorAll('.pm-doc').forEach(t => t.value = ''); sc.querySelector('#imgList').innerHTML = ''; save(); try { localStorage.removeItem(SK); } catch (e) {} fill(); sc.querySelector('#pmMsg').textContent = 'Erased.'; };
+  sc.querySelector('#pmClear').onclick = async () => { if ((await window.__mlSheet('Erase the plant model?', 'The plant model is erased from this device.', [{ l: 'Keep', v: 'no', p: 1 }, { l: 'Erase', v: 'yes' }])) !== 'yes') return; M = {}; try { indexedDB.deleteDatabase('meltlab_docs'); } catch (e) {} sc.querySelectorAll('.pm-doc').forEach(t => t.value = ''); sc.querySelector('#imgList').innerHTML = ''; save(); try { localStorage.removeItem(SK); } catch (e) {} fill(); sc.querySelector('#pmMsg').textContent = 'Erased.'; };
   document.getElementById('wipeAll').addEventListener('click', () => { try { localStorage.removeItem(SK); indexedDB.deleteDatabase('meltlab_docs'); } catch (e) {} });
 
 
@@ -1986,13 +1996,13 @@ const MLRef = (function () {
 
 // v3.44: in-page sheet instead of native dialogs
 (function () {
-  window.__mlSheet = (title, msg, btns) => new Promise(res => {
+  window.__mlSheet = (title, msg, btns, inp) => new Promise(res => {
     const old = document.getElementById('uxSheet'); if (old) old.remove();
     const o = document.createElement('div'); o.id = 'uxSheet'; o.className = 'ux-sheet'; o.setAttribute('role', 'dialog'); o.setAttribute('aria-modal', 'true'); o.setAttribute('aria-label', title);
     const b = document.createElement('div'); b.className = 'sh-b';
     const h = document.createElement('div'); h.className = 'sh-t'; h.textContent = title; const m = document.createElement('div'); m.className = 'sh-m'; m.textContent = msg;
-    const a = document.createElement('div'); a.className = 'sh-a'; b.appendChild(h); b.appendChild(m); b.appendChild(a); o.appendChild(b);
-    let def = null; btns.forEach(x => { const k = document.createElement('button'); k.type = 'button'; k.className = 'btn' + (x.p ? '' : ' ghost'); k.textContent = x.l; k.onclick = () => { o.remove(); res(x.v); }; a.appendChild(k); if (x.p) def = k; });
+    const a = document.createElement('div'); a.className = 'sh-a'; b.appendChild(h); b.appendChild(m); let ti = null; if (inp) { ti = document.createElement(inp.multi ? 'textarea' : 'input'); ti.className = 'sh-i'; ti.setAttribute('aria-label', inp.label || title); if (inp.ph) ti.placeholder = inp.ph; if (!inp.multi) { ti.type = 'text'; ti.inputMode = inp.mode || 'text'; } else ti.rows = 3; b.appendChild(ti); } b.appendChild(a); o.appendChild(b);
+    let def = null; btns.forEach(x => { const k = document.createElement('button'); k.type = 'button'; k.className = 'btn' + (x.p ? '' : ' ghost'); k.textContent = x.l; k.onclick = () => { window.__mlSheetText = ti ? ti.value : ''; o.remove(); res(x.v); }; a.appendChild(k); if (x.p) def = k; }); if (ti) def = ti;
     document.body.appendChild(o); window.__mlSheetLast = { title, msg }; setTimeout(() => def && def.focus(), 30);
   });
 })();
@@ -2321,8 +2331,8 @@ const MLRef = (function () {
     if (q('ckReset')) q('ckReset').onclick = async () => { if ((await window.__mlSheet('Reset the heat clock?', 'The clock, basket count and timers for this heat are cleared.', [{ l: 'Keep running', v: 'no', p: 1 }, { l: 'Reset', v: 'yes' }])) !== 'yes') return; S = { t0: 0, baskets: 0, size: S.size || '', manual: false }; save(); draw(); };
     if (q('ckFix')) q('ckFix').onclick = () => { const e = $('f_charged'); if (e) { e.scrollIntoView({ block: 'center' }); e.focus(); e.select && e.select(); } };
     if (q('ckAuto')) q('ckAuto').onclick = () => { S.manual = false; save(); applyEst(); draw(); };
-    if (q('ckBk')) q('ckBk').onclick = () => {
-      if (!parseFloat(S.size)) { const v = window.prompt('Basket size in tonnes (asked once, saved on this device)', ''); const n = parseFloat(String(v || '').replace(',', '.')); if (!n || n <= 0) return; S.size = String(n); }
+    if (q('ckBk')) q('ckBk').onclick = async () => {
+      if (!parseFloat(S.size)) { const rr = await window.__mlSheet('Basket size', 'Basket size in tonnes. Asked once, saved on this device.', [{ l: 'Save', v: 'ok', p: 1 }, { l: 'Cancel', v: 'no' }], { ph: 'tonnes', mode: 'decimal', label: 'Basket size in tonnes' }); const n = parseFloat(String(window.__mlSheetText || '').replace(',', '.')); if (rr !== 'ok' || !n || n <= 0) return; S.size = String(n); }
       const prev = { baskets: S.baskets || 0 }; S.baskets = prev.baskets + 1; save(); applyEst(); draw(); undo('Basket added', () => { S.baskets = prev.baskets; save(); applyEst(); draw(); }, { k: 'bk', v: prev.baskets }); };
     const jet = d => () => { const e = $('f_jetsRunning'), ji = num('f_jetsInstalled', 2); if (!e) return; const old0 = e.value; e.value = Math.min(ji, Math.max(0, num('f_jetsRunning', 1) + d)); fire(e); draw(); undo('Jets changed', () => { e.value = old0; fire(e); draw(); }, { k: 'jet', v: old0 }); };
     if (q('ckJm')) q('ckJm').onclick = jet(-1); if (q('ckJp')) q('ckJp').onclick = jet(1);
@@ -2528,6 +2538,8 @@ const MLRef = (function () {
   const last = {};
   stepper(T, 5, 0, 'C'); stepper(C, 0.01, 2, '% C');
   // fat-finger guard, typed entries only
+  window.__mlClear = el => { el.value = ''; el.__mlInt = true; try { fire(el); } finally { el.__mlInt = false; } };
+  window.__mlRefuse = (el, v) => { window.__mlClear(el); const c = el.id === 'f_curC'; return window.__mlSheet(c ? 'Carbon value refused' : 'Temperature value refused', c ? v + ' % carbon is impossible (0 to 100). The field was cleared and no advice was made.' : v + ' C is outside 1 to 2500 C. The field was cleared and no advice was made.', [{ l: 'Fix it', v: 'fix', p: 1 }]); };
   const JUMP = { f_temp: 100, f_curC: 0.3 };
   [T, C].forEach(el => {
     last[el.id] = { v: num(el), at: 0 };
@@ -2537,19 +2549,19 @@ const MLRef = (function () {
       if (isNaN(v)) return;
       const back = () => { el.value = isNaN(p) ? '' : p; el.__mlInt = true; try { fire(el); } finally { el.__mlInt = false; } try { el.focus(); } catch (e) {} };
       const cmax = () => { const x = parseFloat(localStorage.getItem('meltlab_cmax')); return x > 0 && x <= 100 ? x : 5; };
-      if (el.id === 'f_curC' && (v > 100 || v < 0)) { back(); await window.__mlSheet('Carbon value refused', v + ' % carbon is impossible (a percent is 0 to 100). It was not kept.', [{ l: 'Fix it', v: 'fix', p: 1 }]); return; }
-      if (el.id === 'f_temp' && (v <= 0 || v > 2500)) { back(); await window.__mlSheet('Temperature value refused', v + ' C is outside 1 to 2500 C. It was not kept.', [{ l: 'Fix it', v: 'fix', p: 1 }]); return; }
+      if (el.id === 'f_curC' && (v > 100 || v < 0)) { window.__mlRefuse(el, v); return; }
+      if (el.id === 'f_temp' && (v <= 0 || v > 2500)) { window.__mlRefuse(el, v); return; }
       let msg = '';
       if (el.id === 'f_curC' && v > cmax() && el.dataset.kept !== String(v)) msg = v + ' % carbon is outside 0 to ' + cmax() + ' %. Keep or fix?';
       else if (!ev.isTrusted) msg = '';
       else if (L && L.at && L.v === v && now - L.at < 60000) msg = 'You entered the same value twice within a minute. Keep or fix?';
       else if (!isNaN(p) && p > 0 && v > 0 && (v / p >= 5 || p / v >= 5)) msg = 'That is about ' + (v > p ? Math.round(v / p) : '1/' + Math.round(p / v)) + ' times the last value (' + p + '). Keep ' + v + ' or fix?';
       else if (!isNaN(p) && Math.abs(v - p) > JUMP[el.id]) msg = 'This is a big change from ' + p + '. Keep ' + v + ' or fix?';
-      if (msg) { const r = await window.__mlSheet('Check this value', msg, [{ l: 'Fix it', v: 'fix', p: 1 }, { l: 'Keep ' + v, v: 'keep' }]); if (r !== 'keep') { back(); return; } el.dataset.kept = String(v); if (window.__mlAudit) window.__mlAudit(el.id === 'f_curC' ? 'Carbon now (kept after check)' : 'Temperature now (kept after check)', v + (el.id === 'f_curC' ? ' %' : ' C')); }
+      if (msg) { const r = await window.__mlSheet('Check this value', msg, [{ l: 'Fix it', v: 'fix', p: 1 }, { l: 'Keep ' + v, v: 'keep' }]); if (r !== 'keep') { window.__mlClear(el); return; } el.dataset.kept = String(v); if (window.__mlAudit) window.__mlAudit(el.id === 'f_curC' ? 'Carbon now (kept after check)' : 'Temperature now (kept after check)', v + (el.id === 'f_curC' ? ' %' : ' C')); }
       last[el.id] = { v, at: now };
     });
   });
-  window.__mlGuard = async (el, v) => { const cm = () => { const x = parseFloat(localStorage.getItem('meltlab_cmax')); return x > 0 && x <= 100 ? x : 5; }; if (el.id === 'f_curC' && (v > 100 || v < 0)) { await window.__mlSheet('Carbon value refused', v + ' % carbon is impossible (a percent is 0 to 100). It was not kept.', [{ l: 'Fix it', v: 'fix', p: 1 }]); return false; } const p = parseFloat(String(el.value || '').replace(',', '.')); let msg = ''; if (el.id === 'f_curC' && v > cm()) msg = v + ' % carbon is outside 0 to ' + cm() + ' %. Keep or fix?'; else if (!isNaN(p) && p > 0 && v > 0 && (v / p >= 5 || p / v >= 5)) msg = 'That is about ' + (v > p ? Math.round(v / p) : '1/' + Math.round(p / v)) + ' times the current value (' + p + '). Keep ' + v + ' or fix?'; else if (!isNaN(p) && Math.abs(v - p) > JUMP[el.id]) msg = 'This is a big change from ' + p + '. Keep ' + v + ' or fix?'; if (!msg) return true; const kr = (await window.__mlSheet('Check this value', msg, [{ l: 'Fix it', v: 'fix', p: 1 }, { l: 'Keep ' + v, v: 'keep' }])) === 'keep'; if (kr) el.dataset.kept = String(v); return kr; };
+  window.__mlGuard = async (el, v) => { const cm = () => { const x = parseFloat(localStorage.getItem('meltlab_cmax')); return x > 0 && x <= 100 ? x : 5; }; if (el.id === 'f_curC' && (v > 100 || v < 0) || el.id === 'f_temp' && (v <= 0 || v > 2500)) { await window.__mlRefuse(el, v); return false; } const p = parseFloat(String(el.value || '').replace(',', '.')); let msg = ''; if (el.id === 'f_curC' && v > cm()) msg = v + ' % carbon is outside 0 to ' + cm() + ' %. Keep or fix?'; else if (!isNaN(p) && p > 0 && v > 0 && (v / p >= 5 || p / v >= 5)) msg = 'That is about ' + (v > p ? Math.round(v / p) : '1/' + Math.round(p / v)) + ' times the current value (' + p + '). Keep ' + v + ' or fix?'; else if (!isNaN(p) && Math.abs(v - p) > JUMP[el.id]) msg = 'This is a big change from ' + p + '. Keep ' + v + ' or fix?'; if (!msg) return true; const kr = (await window.__mlSheet('Check this value', msg, [{ l: 'Fix it', v: 'fix', p: 1 }, { l: 'Keep ' + v, v: 'keep' }])) === 'keep'; if (kr) el.dataset.kept = String(v); else window.__mlClear(el); return kr; };
   window.__mlGate = () => { const cm = () => { const x = parseFloat(localStorage.getItem('meltlab_cmax')); return x > 0 && x <= 100 ? x : 5; }; const C = document.getElementById('f_curC'), T = document.getElementById('f_temp'); const clr = e => { e.value = ''; e.__mlInt = true; try { fire(e); } finally { e.__mlInt = false; } }; const c = C ? parseFloat(String(C.value).replace(',', '.')) : NaN, t = T ? parseFloat(String(T.value).replace(',', '.')) : NaN; if (!isNaN(c) && (c > 100 || c < 0)) { clr(C); return ['Carbon value refused', c + ' % carbon is impossible (0 to 100). The field was cleared and no advice was made.', 0]; } if (!isNaN(t) && (t <= 0 || t > 2500)) { clr(T); return ['Temperature value refused', t + ' C is outside 1 to 2500 C. The field was cleared and no advice was made.', 0]; } if (!isNaN(c) && c > cm() && C.dataset.kept !== String(c)) return ['Check carbon first', c + ' % carbon is outside 0 to ' + cm() + ' %. Fix it, or keep it, before advice.', C]; return null; };
   window.addEventListener('click', ev => { const b = ev.target.closest && ev.target.closest('[data-go="advice"], [data-go="why"], nav button'); if (!b) return; if (b.matches('nav button') && !/advice|reason|why/i.test((b.getAttribute('data-go') || '') + (b.textContent || '') + (b.id || ''))) return; const g = window.__mlGate && window.__mlGate(); if (!g) return; ev.stopImmediatePropagation(); ev.preventDefault(); const C = g[2]; window.__mlSheet(g[0], g[1], C ? [{ l: 'Fix it', v: 'fix', p: 1 }, { l: 'Keep ' + C.value, v: 'keep' }] : [{ l: 'Fix it', v: 'fix', p: 1 }]).then(r => { if (C) { if (r === 'keep') { C.dataset.kept = String(parseFloat(C.value)); if (window.__mlAudit) window.__mlAudit('Carbon now (kept after check)', C.value + ' %'); } else { C.value = ''; C.__mlInt = true; try { fire(C); } finally { C.__mlInt = false; } } } }); }, true);
   // reopen recovery
@@ -2642,7 +2654,7 @@ const MLRef = (function () {
   if (heat) {
     const cg = $('chemGrid') || $('heatGrid'); const b = document.createElement('div'); b.className = 'ux-step'; b.innerHTML = '<button type="button" class="btn ghost sm" id="labPaste">Paste lab result</button>';
     if (cg) cg.insertAdjacentElement('beforebegin', b);
-    $('labPaste').onclick = async () => { let t = ''; try { t = await navigator.clipboard.readText(); } catch (e) {} if (!t) t = prompt('Paste the lab result text with units (for example: C 0.18 % Mn 0.45 % Si 0.12 % P 0.015 % S 0.02 %)') || ''; const r = parseLab2(t); const o = r.vals, keys = Object.keys(o); if (r.errs.length) { await window.__mlSheet('Nothing was filled', 'This text is ambiguous. ' + r.errs.join(' '), [{ l: 'OK', v: 'ok', p: 1 }]); return; } if (!keys.length) { await window.__mlSheet('No values found', 'Expected something like: C 0.18 % Mn 0.45 % Si 0.12 % P 0.015 % S 0.02 %', [{ l: 'OK', v: 'ok', p: 1 }]); return; } if ((await window.__mlSheet('Fill these values?', keys.map(k => k + ' ' + o[k] + ' %').join(', '), [{ l: 'Fill', v: 'yes', p: 1 }, { l: 'Cancel', v: 'no' }])) !== 'yes') return; keys.forEach(k => { const e = $(map[k]); if (e) { e.value = o[k]; fire(e); } }); if (window.__mlBased) window.__mlBased.stamp(); };
+    $('labPaste').onclick = async () => { let t = ''; try { t = await navigator.clipboard.readText(); } catch (e) {} if (!t) { const rr = await window.__mlSheet('Paste lab result', 'Paste the lab text with units, for example: C 0.18 % Mn 0.45 % Si 0.12 % P 0.015 % S 0.02 %', [{ l: 'Read it', v: 'ok', p: 1 }, { l: 'Cancel', v: 'no' }], { multi: 1, ph: 'C 0.18 % Mn 0.45 % ...', label: 'Lab result text' }); t = rr === 'ok' ? window.__mlSheetText : ''; } const r = parseLab2(t); const o = r.vals, keys = Object.keys(o); if (r.errs.length) { await window.__mlSheet('Nothing was filled', 'This text is ambiguous. ' + r.errs.join(' '), [{ l: 'OK', v: 'ok', p: 1 }]); return; } if (!keys.length) { await window.__mlSheet('No values found', 'Expected something like: C 0.18 % Mn 0.45 % Si 0.12 % P 0.015 % S 0.02 %', [{ l: 'OK', v: 'ok', p: 1 }]); return; } if ((await window.__mlSheet('Fill these values?', keys.map(k => k + ' ' + o[k] + ' %').join(', '), [{ l: 'Fill', v: 'yes', p: 1 }, { l: 'Cancel', v: 'no' }])) !== 'yes') return; keys.forEach(k => { const e = $(map[k]); if (e) { e.value = o[k]; fire(e); } }); if (window.__mlBased) window.__mlBased.stamp(); };
   }
   // read advice aloud, print sheet
   if (adv) {
@@ -2681,16 +2693,25 @@ const MLRef = (function () {
     if (adv.offsetParent === null) return;
     const nx = adv.querySelector('.ux-next'); const lines = nx ? nx.innerText.split('\n').map(s => s.trim()).filter(Boolean).slice(1, 3) : [];
     const here = document.querySelector('#uxProf .pf.here'), nxt = here && here.nextElementSibling && here.nextElementSibling.classList.contains('pf') ? here.nextElementSibling : null;
-    const watch = [];
-    const bs = $('uxBased'); if (bs && bs.style.display !== 'none' && bs.classList.contains('stale')) { const m = (bs.querySelector('.ck-sub') || {}).innerText || ''; watch.push(m.replace(/^OUT OF DATE\.\s*/, '').split('. Take')[0]); }
-    const xc = $('uxXchk'); if (xc && xc.style.display !== 'none') watch.push('Temperature and carbon disagree');
-    const lm = $('limits'); if (lm && !lm.classList.contains('okb')) watch.push((lm.innerText.split('\n')[1] || 'A limit is exceeded').trim());
-    if (window.__mlPaused) watch.push('Timers are paused');
+    const watch = [], wwhy = [];
+    const bs = $('uxBased'); if (bs && bs.style.display !== 'none' && bs.classList.contains('stale')) { const m = (bs.querySelector('.ck-sub') || {}).innerText || ''; watch.push(m.replace(/^OUT OF DATE\.\s*/, '').split('. Take')[0]); wwhy.push('The advice was built from readings older than the stale limit in Settings. Enter a new temperature and carbon so the advice matches the bath now.'); }
+    const xc = $('uxXchk'); if (xc && xc.style.display !== 'none') { watch.push('Temperature and carbon disagree'); wwhy.push('Temperature went up between two entries but carbon did not come down. One of the two may be a typo or from a different sample. Check both. Thresholds are in Settings, Inputs check.'); }
+    const lm = $('limits'); if (lm && !lm.classList.contains('okb')) { watch.push((lm.innerText.split('\n')[1] || 'A limit is exceeded').trim()); wwhy.push('A limit from the Limits card is exceeded: ' + lm.innerText.replace(/\s+/g, ' ').trim().slice(0, 240)); }
+    if (window.__mlPaused) { watch.push('Timers are paused'); wwhy.push('You paused the heat clock, so elapsed time and the timers are not running. Resume when power is back on.'); }
+    window.__mlWhyData = { watch, wwhy, nxt };
     const row = (k, cls, body) => '<div class="tri-r ' + cls + '"><b>' + k + '</b><span>' + body + '</span></div>';
-    const html = '<div class="ck-h">Right now</div>' + row('Do now', 'now', lines.length ? esc(lines.join(' ')) : 'Enter the heat to get advice') + row('Next', 'nxt', nxt ? esc((nxt.querySelector('.pf-t') || {}).textContent || '') + ', ' + esc((nxt.querySelector('.pf-w') || {}).textContent || '').split(' to ')[0] : 'Nothing after this phase') + row('Watch', 'wch', watch.length ? '\u25B2 ' + watch.map(esc).join('. ') : '\u2713 Nothing to watch') + '<button type="button" class="btn ghost sm" id="triWhy">Why? Open the reasoning</button>';
+    const html = '<div class="ck-h">Right now</div>' + row('Do now', 'now', lines.length ? esc(lines.join(' ')) : 'Enter the heat to get advice') + row('Next', 'nxt', nxt ? esc((nxt.querySelector('.pf-t') || {}).textContent || '') + ', ' + esc((nxt.querySelector('.pf-w') || {}).textContent || '').split(' to ')[0] : 'Nothing after this phase') + row('Watch', 'wch', watch.length ? '\u25B2 ' + watch.map(esc).join('. ') : '\u2713 Nothing to watch') + '<div class="tri-wy"><button type="button" class="btn ghost sm" data-wy="now">Why Do now?</button><button type="button" class="btn ghost sm" data-wy="next">Why Next?</button><button type="button" class="btn ghost sm" data-wy="watch">Why Watch?</button></div><button type="button" class="btn ghost sm" id="triWhy">Open the full reasoning</button>';
     if (tri.dataset.h !== html) { tri.dataset.h = html; tri.innerHTML = html; }
     tri.querySelector('#triWhy').onclick = () => nav(3);
   }
+  tri.addEventListener('click', e => {
+    const b = e.target.closest('[data-wy]'); if (!b) return; const k = b.dataset.wy, D = window.__mlWhyData || {}; let t = '', m = '';
+    const fv = id => { const e = $(id); return e && e.value !== '' ? e.value : null; }; const basis = [fv('f_temp') !== null ? 'Temperature ' + fv('f_temp') + ' C' : '', fv('f_curC') !== null ? 'Carbon ' + fv('f_curC') + ' %' : ''].filter(Boolean).join(', ');
+    if (k === 'now') { t = 'Why Do now'; const w = $('whyText'); m = (w && w.textContent.trim() ? w.textContent.trim() : 'Enter the heat to get advice.') + (basis ? ' Based on: ' + basis + '.' : '') + ' Advisory only. Check against the plant procedures.'; }
+    else if (k === 'next') { t = 'Why Next'; const n = D.nxt; if (n) { const rows = Array.from(n.querySelectorAll('.pf-r')).map(r => ((r.querySelector('span') || {}).textContent || '') + ' ' + ((r.querySelector('b') || {}).textContent || '')).join('; '); m = ((n.querySelector('.pf-t') || {}).textContent || '') + ' comes after this phase in the plan. ' + ((n.querySelector('.pf-w') || {}).textContent || '') + '. ' + rows; } else m = 'No phase follows the current one in the plan.'; }
+    else { t = 'Why Watch'; m = D.wwhy && D.wwhy.length ? D.wwhy.join(' ') : 'Nothing is flagged. The advice is current, temperature and carbon agree, no limit is exceeded and the timers run.'; }
+    window.__mlSheet(t, m.replace(/\s+/g, ' ').trim(), [{ l: 'OK', v: 'ok', p: 1 }]);
+  });
   setInterval(triDraw, 2000); triDraw();
   // ---- what changed
   let prev = null, chg = new Set(); const norm = t => String(t).replace(/\(\+\d+ min\)|from \+\d+ min|\+\d+ min/g, '').replace(/\s+/g, ' ').trim();
@@ -2705,7 +2726,7 @@ const MLRef = (function () {
     document.body.appendChild(m); let v = ''; const d = m.querySelector('#kpD'); const show = () => d.textContent = v || '--';
     m.querySelector('.kp-g').onclick = e => { const b = e.target.closest('button'); if (!b) return; const k = b.dataset.k; if (k === '<') v = v.slice(0, -1); else if (k === '.' && v.includes('.')) return; else if (v.length < 7) v += k; show(); }; show();
     m.querySelector('#kpX').onclick = () => m.remove();
-    m.querySelector('#kpOk').onclick = async () => { if (v !== '' && /^\d*\.?\d+$|^\d+\.$/.test(v) && !isNaN(parseFloat(v)) && (el.id !== 'f_temp' || (parseFloat(v) > 0 && parseFloat(v) <= 2500)) && (!window.__mlGuard || await window.__mlGuard(el, parseFloat(v)))) { el.value = v; el.dispatchEvent(new Event('input', { bubbles: true })); el.dispatchEvent(new Event('change', { bubbles: true })); if (window.__mlXchk) window.__mlXchk.snap(); if (window.__mlBased) window.__mlBased.stamp(); } m.remove(); };
+    m.querySelector('#kpOk').onclick = async () => { if (v !== '' && /^\d*\.?\d+$|^\d+\.$/.test(v) && !isNaN(parseFloat(v)) && (!window.__mlGuard || await window.__mlGuard(el, parseFloat(v)))) { el.value = v; el.dispatchEvent(new Event('input', { bubbles: true })); el.dispatchEvent(new Event('change', { bubbles: true })); if (window.__mlXchk) window.__mlXchk.snap(); if (window.__mlBased) window.__mlBased.stamp(); } m.remove(); };
   }
   window.__mlKeypad = keypad;
   [[T, 'Temperature (C)'], [C, 'Carbon (%)']].forEach(([el, lb]) => { if (!el) return; const row = (el.closest('.field') || el.parentElement).nextElementSibling; if (!row || !row.classList.contains('ux-step')) return; const sp = row.querySelector('span'); const b = document.createElement('button'); b.type = 'button'; b.className = 'btn ghost sm'; b.textContent = 'Keypad'; b.style.flex = '0 0 auto'; b.onclick = () => keypad(el, lb); sp.replaceWith(b); });
@@ -2752,11 +2773,37 @@ const MLRef = (function () {
   const fix = () => { document.querySelectorAll('input,select,textarea').forEach(e => { if (e.type === 'hidden' || e.type === 'file' || e.getAttribute('aria-label') || e.getAttribute('aria-labelledby')) return; if (e.labels && e.labels.length) { const t = e.labels[0].textContent.replace(/\s+/g, ' ').trim(); if (t) { e.setAttribute('aria-label', t.slice(0, 80)); return; } } if (e.id === 'agE') e.setAttribute('aria-label', 'Email address'); else if (e.id === 'agP') e.setAttribute('aria-label', 'Password'); else e.setAttribute('aria-label', nameOf(e)); }); };
   setInterval(fix, 2500); fix();
 })();
-(function () { const put = v => { const g = document.getElementById('authgate'), c = g && g.querySelector('.ag-card'); if (!c) return; if (!c.querySelector('#agVer')) { const d = document.createElement('div'); d.id = 'agVer'; d.textContent = 'MeltLab v' + v; d.style.cssText = 'text-align:center;font-size:13px;opacity:.8;padding:10px'; c.appendChild(d); } if (!c.querySelector('#agDemo')) { const a = document.createElement('a'); a.id = 'agDemo'; a.href = '?demo=1'; a.textContent = 'Try demo (no sign-in, made-up numbers)'; a.style.cssText = 'display:block;text-align:center;font-size:16px;font-weight:700;padding:12px;color:#FFB454;text-decoration:underline'; c.appendChild(a); } }; fetch('version.json', { cache: 'no-store' }).then(r => r.json()).then(j => { put(j.v); setInterval(() => put(j.v), 800); }).catch(() => {}); })();
+(function () { const put = v => { const g = document.getElementById('authgate'), c = g && g.querySelector('.ag-card'); if (!c) return; if (!c.querySelector('#agVer')) { const d = document.createElement('div'); d.id = 'agVer'; d.textContent = 'MeltLab v' + v; d.style.cssText = 'text-align:center;font-size:13px;opacity:.8;padding:10px'; c.appendChild(d); } if (!c.querySelector('#agDemo')) { const a = document.createElement('a'); a.id = 'agDemo'; a.href = '?demo=1'; a.textContent = 'Try demo (no sign-in, made-up numbers)'; a.style.cssText = 'display:block;text-align:center;font-size:16px;font-weight:700;padding:12px;color:#FFB454;text-decoration:underline'; c.appendChild(a); } }; const BV = '3.46'; put(BV); setInterval(() => { put(BV); const f = document.querySelector('footer'); if (f && !f.dataset.v) { f.dataset.v = 1; f.textContent = 'MeltLab v' + BV + '. ' + f.textContent.replace(/^MeltLab v3\.\s*/, ''); } }, 800); })();
+
+// v3.46: delta vs last logged heat
+(function () {
+  const adv = document.getElementById('s_advice'); if (!adv) return;
+  const card = document.createElement('div'); card.className = 'card ux-delta'; card.id = 'uxDelta';
+  const tri = document.getElementById('uxTri'); (tri || adv.querySelector('header')).insertAdjacentElement('afterend', card);
+  const num = x => { const n = parseFloat(String(x).replace(',', '.')); return isNaN(n) ? null : n; };
+  const sg = (d, dec, u) => (d > 0 ? '+' : d < 0 ? '-' : '') + (Math.round(Math.abs(d) * Math.pow(10, dec)) / Math.pow(10, dec)) + (u ? ' ' + u : '');
+  function draw() {
+    if (adv.offsetParent === null) return;
+    let h = []; try { h = JSON.parse(localStorage.getItem('meltlab_hist') || '[]'); } catch (e) {}
+    let m = null; try { m = model(); } catch (e) {}
+    let html;
+    if (!h.length) html = '<div class="ck-h">Versus last heat</div><div class="ck-sub">No logged heat to compare yet. Tap Log this heat when this one is done, and the next heat shows what changed.</div>';
+    else if (!m) html = '';
+    else {
+      const L = h[0], rows = [];
+      const add = (name, cur, last, dec, unit) => { if (cur === null || last === null) return; const d = cur - last; rows.push('<div class="dl-r"><span>' + name + '</span><b>' + (Math.round(cur * Math.pow(10, dec)) / Math.pow(10, dec)) + (unit ? ' ' + unit : '') + '</b><i class="' + (d === 0 ? 'z' : d > 0 ? 'u' : 'd') + '">' + (d === 0 ? 'same' : sg(d, dec, unit)) + '</i><em>last ' + (Math.round(last * Math.pow(10, dec)) / Math.pow(10, dec)) + '</em></div>'); };
+      add('Carbon', m.c0, num(L.c), 3, '%'); add('Temperature', m.tNow, num(L.t), 0, 'C'); add('Charge', m.total, num(L.ch), 0, 't'); add('Oxygen to go', m.o2Rem, num(L.o), 0, 'Nm3'); add('Jets', m.jets, num(L.j), 0, '');
+      const e = m.finalKwhT !== null && m.finalKwhT !== undefined ? m.finalKwhT : (m.total ? m.eTotal / m.total : null); add('Energy', e, num(L.e), 0, 'kWh/t');
+      html = '<div class="ck-h">Versus last heat</div><div class="ck-sub">Compared with ' + String(L.n || 'the last logged heat').replace(/[<>&]/g, '') + ', ' + String(L.d || '').replace(/[<>&]/g, '') + '.</div>' + (rows.join('') || '<div class="ck-sub">Nothing comparable yet.</div>');
+    }
+    if (card.dataset.h !== html) { card.dataset.h = html; card.innerHTML = html; }
+  }
+  setInterval(draw, 2000); draw();
+})();
 
 /* ---- Self-update: check on open, focus, return, reconnect and every 5 minutes; reload at a safe moment ---- */
 (function () {
-  const VER = '3.45';
+  const VER = '3.46';
   try {
     const seen = localStorage.getItem('meltlab_ver_seen');
     if (seen && seen !== VER) {
