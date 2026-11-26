@@ -296,6 +296,7 @@ html.ag-lock body>*:not(#authgate){visibility:hidden}
 .pf.past{opacity:.45}.pf.here{border-color:#fff;background:rgba(255,180,84,.08);border-radius:0 14px 14px 0}.pf-now{font-size:12px;font-weight:800;letter-spacing:.08em;color:#FFB454;margin-bottom:2px}
 .pf-tapw{background:rgba(61,220,132,.14);border:1px solid #3DDC84;border-radius:14px;padding:10px 12px;margin:0 0 12px;font-weight:700}
 .smp-n{font-size:30px;font-weight:800;color:#7ddf9a;margin:4px 0}.smp-n.over{color:#FFB454}.ux-log{padding:12px 16px}
+.pz-n{font-size:30px;font-weight:800;color:#FFB454;margin:4px 0}.ux-pz.on{border:1px solid #FFB454}.ux-log{max-height:none}
 </style>
 </head>
 <body>
@@ -2302,6 +2303,7 @@ const MLRef = (function () {
     if (q('smpCancel')) q('smpCancel').onclick = () => { S.t = 0; save(); draw(); };
   }
   setInterval(() => { if (!S.t) return; const left = S.t + (S.dur || 0) * 60000 - Date.now(), n = $('smpN'); if (n) { n.className = 'smp-n' + (left < 0 ? ' over' : ''); n.textContent = (left < 0 ? 'Result overdue ' : 'Result in ') + mm(left); } if (left <= 0 && !due) { due = true; try { if (navigator.vibrate) navigator.vibrate([200, 100, 200]); } catch (e) {} } }, 1000);
+  window.__mlSmp = { shift: ms => { if (S.t) { S.t += ms; save(); } } };
   draw();
 
   // one toast at a time, swipe to dismiss, kept above the nav, and a change log
@@ -2323,9 +2325,31 @@ const MLRef = (function () {
   renderLog();
 })();
 
+// v3.32: power-cut pause
+(function () {
+  const $ = id => document.getElementById(id), host = $('uxClock'); if (!host || !window.__mlClock) return;
+  const K = 'meltlab_clock', P = 'meltlab_pause'; let pz = null; try { pz = JSON.parse(localStorage.getItem(P) || 'null'); } catch (e) {}
+  const card = document.createElement('div'); card.className = 'card ux-pz'; card.id = 'uxPz'; host.insertAdjacentElement('afterend', card);
+  const clk = () => window.__mlClock.get();
+  const wr = () => { try { localStorage.setItem(K, JSON.stringify(clk())); } catch (e) {} };
+  const wp = () => { try { if (pz) localStorage.setItem(P, JSON.stringify(pz)); else localStorage.removeItem(P); } catch (e) {} };
+  function shift(ms) { if (ms <= 0) return; const c = clk(); if (c && c.t0) { c.t0 += ms; wr(); } if (window.__mlSmp) window.__mlSmp.shift(ms); }
+  if (pz) shift(Date.now() - pz.last);
+  function draw() {
+    const run = clk() && clk().t0;
+    if (pz) card.innerHTML = '<div class="ck-h">Paused</div><div class="pz-n" id="pzN">Paused ' + mm(Date.now() - pz.at) + '</div><div class="ck-sub">All heat and sample timers are frozen and the estimates hold. Resume when power is back.</div><button class="btn sm" id="pzGo">Resume</button>';
+    else card.innerHTML = '<div class="ck-row"><span>Power cut or hold</span><button class="btn ghost sm" id="pzGo"' + (run ? '' : ' disabled') + '>Pause all timers</button></div>';
+    card.classList.toggle('on', !!pz);
+    const b = card.querySelector('#pzGo'); b.onclick = () => { if (pz) { shift(Date.now() - pz.last); pz = null; } else { pz = { at: Date.now(), last: Date.now() }; } wp(); draw(); };
+  }
+  const mm = ms => { const s = Math.round(ms / 1000); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
+  setInterval(() => { if (pz) { const n = Date.now(); shift(n - pz.last); pz.last = n; wp(); const e = $('pzN'); if (e) e.textContent = 'Paused ' + mm(n - pz.at); } else { const b = card.querySelector('#pzGo'); const run = clk() && clk().t0; if (b && b.disabled === !!run) b.disabled = !run; } }, 500);
+  draw();
+})();
+
 /* ---- Self-update: check on open, focus, return, reconnect and every 5 minutes; reload at a safe moment ---- */
 (function () {
-  const VER = '3.31';
+  const VER = '3.32';
   try {
     const seen = localStorage.getItem('meltlab_ver_seen');
     if (seen && seen !== VER) {
