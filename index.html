@@ -305,6 +305,11 @@ body.paused #uxClock,body.paused #uxSmp,body.paused #uxProf{opacity:.55}body.pau
 .ux-undo{top:max(12px,env(safe-area-inset-top));bottom:auto!important}.screen{padding-bottom:210px!important}
 .ux-undo{top:auto!important;bottom:164px!important;padding:4px 6px 4px 14px;min-height:0;font-size:14px}.ux-undo button{min-height:40px;padding:0 16px}
 #uxXset,#uxBags .field{display:block;margin:8px 0}#uxXset,#uxBags input{display:block;width:100%;box-sizing:border-box;margin-top:6px;min-height:52px;padding:0 16px;border-radius:16px;border:1px solid rgba(255,255,255,.18);background:rgba(0,0,0,.28);color:#fff;font-size:18px;font-family:inherit}
+.ux-step{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:-2px 0 10px}.ux-step .btn{min-height:48px;flex:1}.ux-step span{color:var(--muted);font-size:13px;min-width:44px;text-align:center}
+.ux-based.stale{border:1px solid #ff6b6b}.ux-based.stale .ck-sub{color:#ff9a9a;font-weight:700}.ux-chk .chk input[type=checkbox]{width:24px;height:24px;vertical-align:middle;margin-right:8px}.ux-chk input[type=text]{flex:1;min-height:48px;margin-right:8px;padding:0 12px;border-radius:14px;border:1px solid rgba(255,255,255,.18);background:rgba(0,0,0,.28);color:#fff;font-size:16px}
+.ux-sync{position:fixed;top:4px;right:8px;z-index:40;font-size:11px;padding:2px 8px;border-radius:999px;background:rgba(0,0,0,.45);color:#aab;pointer-events:none}.ux-sync.off{background:#FFB454;color:#1a1305;font-weight:700}
+html.night{filter:sepia(1) saturate(4) hue-rotate(-35deg) brightness(.7)}#uxPrefs,#uxPrefs .field{display:block}#uxPrefs .ck-row{display:flex}#uxPrefs input[type=number]{display:block;width:100%;box-sizing:border-box;margin-top:6px;min-height:52px;padding:0 16px;border-radius:16px;border:1px solid rgba(255,255,255,.18);background:rgba(0,0,0,.28);color:#fff;font-size:18px;font-family:inherit}#uxPrefs input[type=checkbox]{width:28px;height:28px}
+.ux-chk .chk{display:flex;align-items:center;gap:8px}.ux-chk .chk>span{flex:1;display:flex;align-items:center}.ux-chk .chk .btn{flex:0 0 48px!important;min-width:48px;width:48px;padding:0}.ux-chk .chk input[type=checkbox]{flex:0 0 24px;margin:0 10px 0 0}
 </style>
 </head>
 <body>
@@ -2336,7 +2341,7 @@ const MLRef = (function () {
   window.__mlLogAdd = (msg, spec) => { if (curH !== heatId()) { L = []; curH = heatId(); } L.unshift({ msg, at: Date.now(), used: false, spec }); saveL(); renderLog(); };
   function renderLog() {
     if (!L.length) { lg.style.display = 'none'; return; } lg.style.display = '';
-    lg.innerHTML = '<div class="ck-h">Recent changes (this heat), older ones stay here</div>' + L.map((e, i) => i >= 3 && !showAll ? '' : '<div class="ck-row"><span>' + e.msg + ' <span class="ck-basis">' + new Date(e.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + '</span></span>' + (e.used ? '<span class="pill">undone</span>' : '<button class="btn ghost sm" data-i="' + i + '">Undo</button>') + '</div>').join('');
+    lg.innerHTML = '<div class="ck-h">Recent changes (this heat), older ones stay here</div>' + L.map((e, i) => i >= 3 && !showAll ? '' : '<div class="ck-row"><span>' + e.msg + ' <span class="ck-basis">' + new Date(e.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + '</span></span>' + (e.spec && e.spec.k === 'note' ? '' : e.used ? '<span class="pill">undone</span>' : '<button class="btn ghost sm" data-i="' + i + '">Undo</button>') + '</div>').join('');
     if (L.length > 3) { const m = document.createElement('button'); m.className = 'btn ghost sm'; m.textContent = showAll ? 'Show fewer' : 'Show all (' + L.length + ')'; m.onclick = () => { showAll = !showAll; renderLog(); }; lg.appendChild(m); }
     lg.querySelectorAll('button[data-i]').forEach(b => b.onclick = () => { const e = L[+b.dataset.i]; if (e && !e.used && window.__mlUndo && window.__mlUndo[e.spec.k]) { e.used = true; window.__mlUndo[e.spec.k](e.spec.v); saveL(); renderLog(); } });
   }
@@ -2347,7 +2352,7 @@ const MLRef = (function () {
 // v3.32: power-cut pause
 (function () {
   const $ = id => document.getElementById(id), host = $('uxClock'); if (!host || !window.__mlClock) return;
-  const K = 'meltlab_clock', P = 'meltlab_pause'; let pz = null; try { pz = JSON.parse(localStorage.getItem(P) || 'null'); } catch (e) {}
+  const K = 'meltlab_clock', P = 'meltlab_pause'; const PZ = window.__mlPz = Object.assign({ a: 5, b: 15 }, (() => { try { return JSON.parse(localStorage.getItem('meltlab_pzset') || '{}'); } catch (e) { return {}; } })()); let pz = null; try { pz = JSON.parse(localStorage.getItem(P) || 'null'); } catch (e) {}
   const card = document.createElement('div'); card.className = 'card ux-pz'; card.id = 'uxPz'; host.insertAdjacentElement('afterend', card);
   const clk = () => window.__mlClock.get();
   const wr = () => { try { localStorage.setItem(K, JSON.stringify(clk())); } catch (e) {} };
@@ -2357,12 +2362,13 @@ const MLRef = (function () {
   function draw() {
     const run = clk() && clk().t0;
     if (pz) card.innerHTML = '<div class="ck-h">Paused</div><div class="pz-n" id="pzN">Paused ' + mm(Date.now() - pz.at) + '</div><div class="ck-sub">All heat and sample timers are frozen and the estimates hold. Resume when power is back.</div><button class="btn sm" id="pzGo">Resume</button>';
-    else card.innerHTML = '<div class="ck-row"><span>Power cut or hold</span><button class="btn ghost sm" id="pzGo"' + (run ? '' : ' disabled') + '>Pause all timers</button></div>';
+    else card.innerHTML = '<div class="ck-row"><span>Power cut or hold</span><button class="btn ghost sm" id="pzGo"' + (run ? '' : ' disabled') + '>Pause all timers</button></div><div class="ck-row"><span>Maintenance stop <span class="ck-basis">marks this heat as interrupted</span></span><button class="btn ghost sm" id="pzMt"' + (run ? '' : ' disabled') + '>Stop for maintenance</button></div>';
     card.classList.toggle('on', !!pz); document.body.classList.toggle('paused', !!pz); window.__mlPaused = !!pz;
-    const b = card.querySelector('#pzGo'); b.onclick = () => { if (pz) { shift(Date.now() - pz.last); pz = null; } else { pz = { at: Date.now(), last: Date.now() }; } wp(); draw(); };
+    const b = card.querySelector('#pzGo'); b.onclick = () => { if (pz) { shift(Date.now() - pz.last); if (pz.reason === 'maint' && window.__mlLogAdd) window.__mlLogAdd('Heat interrupted for maintenance, ' + Math.max(1, Math.round((Date.now() - pz.at) / 60000)) + ' min', { k: 'note' }); pz = null; } else { pz = { at: Date.now(), last: Date.now() }; } wp(); draw(); };
+    const mt = card.querySelector('#pzMt'); if (mt) mt.onclick = () => { pz = { at: Date.now(), last: Date.now(), reason: 'maint' }; wp(); draw(); };
   }
   const mm = ms => { const s = Math.round(ms / 1000); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
-  setInterval(() => { if (pz) { const n = Date.now(); const age = (n - pz.at) / 60000; card.classList.toggle('old', age >= 5); card.classList.toggle('older', age >= 15); const rem = age >= 15 && (!pz.r || n - pz.r >= 30 * 60000); if (rem) { pz.r = n; try { if (navigator.vibrate) navigator.vibrate([120]); } catch (e) {} } const hd = card.querySelector('.ck-h'); if (hd) hd.textContent = 'PAUSED ' + Math.floor(age) + ' min' + (age >= 15 ? ', long pause' : age >= 5 ? ', still paused' : ''); shift(n - pz.last); pz.last = n; wp(); const e = $('pzN'); if (e) e.textContent = 'Paused ' + mm(n - pz.at); } else { const b = card.querySelector('#pzGo'); const run = clk() && clk().t0; if (b && b.disabled === !!run) b.disabled = !run; } }, 500);
+  setInterval(() => { if (pz) { const n = Date.now(); const age = (n - pz.at) / 60000; card.classList.toggle('old', age >= PZ.a); card.classList.toggle('older', age >= PZ.b); const rem = age >= PZ.b && (!pz.r || n - pz.r >= 30 * 60000); if (rem) { pz.r = n; try { if (navigator.vibrate) navigator.vibrate([120]); } catch (e) {} } const hd = card.querySelector('.ck-h'); if (hd) hd.textContent = (pz.reason === 'maint' ? 'MAINTENANCE ' : 'PAUSED ') + Math.floor(age) + ' min' + (age >= PZ.b ? ', long pause' : age >= PZ.a ? ', still paused' : ''); shift(n - pz.last); pz.last = n; wp(); const e = $('pzN'); if (e) e.textContent = 'Paused ' + mm(n - pz.at); } else { const b = card.querySelector('#pzGo'), m2 = card.querySelector('#pzMt'); const run = clk() && clk().t0; if (b && b.disabled === !!run) b.disabled = !run; if (m2 && m2.disabled === !!run) m2.disabled = !run; } }, 500);
   draw();
 })();
 
@@ -2422,9 +2428,103 @@ const MLRef = (function () {
   a.addEventListener('change', sv); b.addEventListener('change', sv);
 })();
 
+// v3.39: steppers, fat-finger guard, reopen recovery
+(function () {
+  const $ = id => document.getElementById(id), T = $('f_temp'), C = $('f_curC'), host = $('uxClock'); if (!T || !C) return;
+  const fire = e => { e.dispatchEvent(new Event('input', { bubbles: true })); e.dispatchEvent(new Event('change', { bubbles: true })); if (window.__mlXchk) window.__mlXchk.snap(); };
+  const num = e => parseFloat(String(e.value).replace(',', '.'));
+  const rnd = (x, d) => Math.round(x * Math.pow(10, d)) / Math.pow(10, d);
+  // steppers
+  function stepper(el, step, dec, unit) {
+    const row = document.createElement('div'); row.className = 'ux-step';
+    row.innerHTML = '<button type="button" class="btn ghost sm" data-d="-1" aria-label="Down ' + step + '">- ' + step + '</button><span>' + unit + '</span><button type="button" class="btn ghost sm" data-d="1" aria-label="Up ' + step + '">+ ' + step + '</button>';
+    const anchor = el.closest('.field') || el.parentElement; anchor.insertAdjacentElement('afterend', row);
+    row.addEventListener('click', ev => { const b = ev.target.closest('button'); if (!b) return; const cur = num(el); if (isNaN(cur)) { el.focus(); return; } el.value = rnd(cur + (+b.dataset.d) * step, dec); last[el.id] = { v: num(el), at: Date.now() }; try { if (navigator.vibrate) navigator.vibrate(8); } catch (e) {} fire(el); if (window.__mlBased) window.__mlBased.stamp(); });
+  }
+  const last = {};
+  stepper(T, 5, 0, 'C'); stepper(C, 0.01, 2, '% C');
+  // fat-finger guard, typed entries only
+  const JUMP = { f_temp: 100, f_curC: 0.3 };
+  [T, C].forEach(el => {
+    last[el.id] = { v: num(el), at: 0 };
+    el.addEventListener('focus', () => { el.dataset.prev = el.value; });
+    el.addEventListener('change', ev => {
+      if (!ev.isTrusted) return; const v = num(el), L = last[el.id], p = parseFloat(String(el.dataset.prev || '').replace(',', '.')), now = Date.now();
+      if (isNaN(v)) return;
+      let msg = '';
+      if (L && L.at && L.v === v && now - L.at < 60000) msg = 'You entered the same value twice within a minute. Keep it?';
+      else if (!isNaN(p) && Math.abs(v - p) > JUMP[el.id]) msg = 'This is a big change from ' + p + '. Keep ' + v + '?';
+      if (msg && !confirm(msg)) { el.value = isNaN(p) ? '' : p; fire(el); return; }
+      last[el.id] = { v, at: now };
+    });
+  });
+  // reopen recovery
+  const SK = 'meltlab_seen'; let seen = 0; try { seen = +localStorage.getItem(SK) || 0; } catch (e) {}
+  const c = window.__mlClock && window.__mlClock.get(); const away = Date.now() - seen;
+  if (host && c && c.t0 && seen && away > 120000 && !localStorage.getItem('meltlab_pause')) {
+    const d = document.createElement('div'); d.className = 'card ux-xchk'; d.id = 'uxAway';
+    d.innerHTML = '<div class="ck-h">Welcome back</div><div class="ck-sub">The app was closed for about ' + Math.round(away / 60000) + ' min. The heat clock kept running. Re-check temperature and carbon before you trust the estimates.</div><button class="btn ghost sm" id="awOk">Got it</button>';
+    host.insertAdjacentElement('beforebegin', d); d.querySelector('#awOk').onclick = () => d.remove();
+  }
+  setInterval(() => { try { localStorage.setItem(SK, String(Date.now())); } catch (e) {} }, 10000); try { localStorage.setItem(SK, String(Date.now())); } catch (e) {}
+})();
+
+// v3.40: based-on strip, pre-tap checklist, maintenance, sync chip, night mode, pause settings
+(function () {
+  const $ = id => document.getElementById(id), T = $('f_temp'), C = $('f_curC'), adv = $('s_advice'), st = $('s_settings');
+  const RK = 'meltlab_rdg', SK = 'meltlab_basedset'; let R = {}; try { R = JSON.parse(localStorage.getItem(RK) || '{}') || {}; } catch (e) {}
+  let BS = Object.assign({ stale: 10 }, (() => { try { return JSON.parse(localStorage.getItem(SK) || '{}'); } catch (e) { return {}; } })());
+  const hid = () => { const c = window.__mlClock && window.__mlClock.get(); return c && c.t0 || 0; };
+  const num = e => parseFloat(String(e.value).replace(',', '.'));
+  const clock = ms => new Date(ms).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const sv = () => { try { localStorage.setItem(RK, JSON.stringify(R)); } catch (e) {} };
+  function stamp() { if (T && !isNaN(num(T))) { if (!R.t || R.t.v !== num(T)) R.t = { v: num(T), at: Date.now() }; } if (C && !isNaN(num(C))) { if (!R.c || R.c.v !== num(C)) R.c = { v: num(C), at: Date.now() }; } sv(); draw(); }
+  if (T) T.addEventListener('change', stamp); if (C) C.addEventListener('change', stamp);
+  const based = document.createElement('div'); based.className = 'card ux-based'; based.id = 'uxBased';
+  if (adv) { const h = adv.querySelector('header'); (h || adv.firstElementChild).insertAdjacentElement('afterend', based); }
+  function draw() {
+    if (!adv) return; const now = Date.now(); const age = r => r ? Math.round((now - r.at) / 60000) : null;
+    const at = age(R.t), ac = age(R.c), mx = Math.max(at === null ? -1 : at, ac === null ? -1 : ac);
+    if (!R.t && !R.c) { based.style.display = 'none'; return; } based.style.display = '';
+    const stale = mx >= BS.stale; based.classList.toggle('stale', stale);
+    based.innerHTML = '<div class="ck-h">Advice is based on</div><div class="ck-row"><span>Temperature ' + (R.t ? R.t.v + ' C' : 'not entered') + '</span><span class="ck-basis">' + (R.t ? clock(R.t.at) + ', ' + at + ' min ago' : '') + '</span></div><div class="ck-row"><span>Carbon ' + (R.c ? R.c.v + ' %' : 'not entered') + '</span><span class="ck-basis">' + (R.c ? clock(R.c.at) + ', ' + ac + ' min ago' : '') + '</span></div><div class="ck-sub">' + (stale ? 'OUT OF DATE: these readings are over ' + BS.stale + ' min old. Take a new sample and enter it.' : 'Valid until you enter a new reading or ' + BS.stale + ' min pass.') + '</div>';
+  }
+  setInterval(draw, 20000); draw();
+  // pre-tap checklist (user-defined items)
+  if (adv) {
+    const CK = 'meltlab_chk'; let L = { items: [], done: {}, h: 0 }; try { L = Object.assign(L, JSON.parse(localStorage.getItem(CK) || '{}')); } catch (e) {}
+    if (L.h !== hid()) { L.done = {}; L.h = hid(); }
+    const cl = document.createElement('div'); cl.className = 'card ux-chk'; cl.id = 'uxChk'; based.insertAdjacentElement('afterend', cl);
+    const sv2 = () => { try { localStorage.setItem(CK, JSON.stringify(L)); } catch (e) {} };
+    function dc() {
+      cl.innerHTML = '<div class="ck-h">Pre-tap checklist (your items)</div>' + (L.items.length ? L.items.map((t, i) => '<label class="ck-row chk"><span><input type="checkbox" data-i="' + i + '"' + (L.done[i] ? ' checked' : '') + '> ' + t.replace(/[<>&]/g, '') + '</span><button type="button" class="btn ghost sm" data-r="' + i + '" aria-label="Remove item">x</button></label>').join('') : '<div class="ck-sub">Add the checks your plant uses before tap. The app has none of its own.</div>') + '<div class="ck-row"><input id="chkNew" type="text" placeholder="New item" maxlength="60"><button type="button" class="btn sm" id="chkAdd">Add</button></div>' + (L.items.length ? '<div class="ck-sub">' + L.items.filter((_, i) => L.done[i]).length + ' of ' + L.items.length + ' done</div>' : '');
+      cl.querySelectorAll('input[type=checkbox]').forEach(c => c.onchange = () => { L.done[c.dataset.i] = c.checked; sv2(); dc(); });
+      cl.querySelectorAll('button[data-r]').forEach(b => b.onclick = e => { e.preventDefault(); const i = +b.dataset.r; L.items.splice(i, 1); L.done = {}; sv2(); dc(); });
+      cl.querySelector('#chkAdd').onclick = () => { const v = cl.querySelector('#chkNew').value.trim(); if (!v) return; L.items.push(v); sv2(); dc(); };
+    }
+    dc();
+  }
+  // sync chip
+  const chip = document.createElement('div'); chip.className = 'ux-sync'; chip.id = 'uxSync'; document.body.appendChild(chip);
+  const sync = () => { chip.textContent = navigator.onLine ? 'Saved on this device' : 'Offline, all data is on this device'; chip.classList.toggle('off', !navigator.onLine); }; window.addEventListener('online', sync); window.addEventListener('offline', sync); sync();
+  // settings: night mode, stale limit, pause thresholds
+  if (st) {
+    const sc = document.createElement('div'); sc.className = 'card'; sc.id = 'uxPrefs';
+    const PZ = window.__mlPz || { a: 5, b: 15 };
+    sc.innerHTML = '<h3 style="margin:0 0 6px">Display and timing</h3><p class="sub" style="margin:0 0 10px">The minute limits are generic starting values, not plant figures. Set your own.</p><label class="ck-row"><span>Night mode (red, low glare)</span><input type="checkbox" id="pfNight"></label><label class="field">Readings out of date after (min)<input id="pfStale" type="number" inputmode="decimal" min="1" step="1"></label><label class="field">Pause turns amber after (min)<input id="pfA" type="number" inputmode="decimal" min="1" step="1"></label><label class="field">Pause turns red after (min)<input id="pfB" type="number" inputmode="decimal" min="1" step="1"></label>';
+    const anchor = $('uxBags') || $('uxXset') || st.querySelector('header') || st.firstElementChild; anchor.insertAdjacentElement('afterend', sc);
+    const nm = sc.querySelector('#pfNight'); nm.checked = localStorage.getItem('meltlab_night') === '1'; const ap = () => document.documentElement.classList.toggle('night', nm.checked); ap();
+    nm.onchange = () => { try { localStorage.setItem('meltlab_night', nm.checked ? '1' : '0'); } catch (e) {} ap(); };
+    const a = sc.querySelector('#pfStale'), b1 = sc.querySelector('#pfA'), b2 = sc.querySelector('#pfB'); a.value = BS.stale; b1.value = PZ.a; b2.value = PZ.b;
+    const save = () => { const x = parseFloat(a.value), y = parseFloat(b1.value), z = parseFloat(b2.value); if (x > 0) BS.stale = x; if (y > 0) PZ.a = y; if (z > 0) PZ.b = z; try { localStorage.setItem(SK, JSON.stringify(BS)); localStorage.setItem('meltlab_pzset', JSON.stringify({ a: PZ.a, b: PZ.b })); } catch (e) {} draw(); };
+    [a, b1, b2].forEach(e => e.addEventListener('change', save));
+  }
+  window.__mlBased = { stamp, get: () => R };
+})();
+
 /* ---- Self-update: check on open, focus, return, reconnect and every 5 minutes; reload at a safe moment ---- */
 (function () {
-  const VER = '3.38';
+  const VER = '3.40';
   try {
     const seen = localStorage.getItem('meltlab_ver_seen');
     if (seen && seen !== VER) {
