@@ -2206,7 +2206,7 @@ const MLRef = (function () {
     card.innerHTML = h; wire();
   }
   let utm = null;
-  function undo(msg, fn) { let t = document.getElementById('uxUndo'); if (t) t.remove(); t = document.createElement('div'); t.id = 'uxUndo'; t.className = 'ux-undo'; t.innerHTML = '<span>' + msg + '</span><button type="button">Undo</button>'; document.body.appendChild(t); t.querySelector('button').onclick = () => { clearTimeout(utm); t.remove(); fn(); }; clearTimeout(utm); utm = setTimeout(() => t.remove(), 5000); try { if (navigator.vibrate) navigator.vibrate(20); } catch (e) {} }
+  function undo(msg, fn) { let t = document.getElementById('uxUndo'); if (t) t.remove(); t = document.createElement('div'); t.id = 'uxUndo'; t.className = 'ux-undo'; t.innerHTML = '<span>' + msg + '</span><button type="button">Undo</button>'; document.body.appendChild(t); t.querySelector('button').onclick = () => { clearTimeout(utm); t.remove(); fn(); }; clearTimeout(utm); utm = setTimeout(() => t.remove(), 10000); try { if (navigator.vibrate) navigator.vibrate([25]); } catch (e) {} }
   // keep the screen awake and buzz when the tap window opens
   let wl = null; async function wake() { try { if (S.t0 && 'wakeLock' in navigator && !wl) { wl = await navigator.wakeLock.request('screen'); wl.addEventListener('release', () => { wl = null; }); } } catch (e) {} }
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') wake(); });
@@ -2278,7 +2278,7 @@ const MLRef = (function () {
 
 /* ---- Self-update: check on open, focus, return, reconnect and every 5 minutes; reload at a safe moment ---- */
 (function () {
-  const VER = '3.29.1';
+  const VER = '3.30';
   try {
     const seen = localStorage.getItem('meltlab_ver_seen');
     if (seen && seen !== VER) {
