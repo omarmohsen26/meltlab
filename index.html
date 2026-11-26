@@ -301,6 +301,8 @@ html.ag-lock body>*:not(#authgate){visibility:hidden}
 body.paused #uxClock,body.paused #uxSmp,body.paused #uxProf{opacity:.55}body.paused #uxClock::before,body.paused #uxSmp::before{content:"PAUSED";display:inline-block;margin-bottom:6px;padding:2px 10px;border-radius:999px;background:#FFB454;color:#1a1305;font-weight:800;font-size:12px}
 .ux-pz.on.old{background:#4a2a12}.ux-pz.on.older{background:#5a1c1c;border-color:#ff6b6b}.ux-pz.on.older .pz-n{color:#ff8a8a}
 .ux-undo{bottom:166px}body:has(.ux-undo) #s_heat .btn[data-go=advice],body:has(.ux-undo) .btn[data-go=advice]{visibility:visible}.ux-xchk{border:1px solid #FFB454}
+.screen{padding-bottom:calc(210px + var(--toast-h,0px))!important}.ux-undo{bottom:166px}
+.ux-undo{top:max(12px,env(safe-area-inset-top));bottom:auto!important}.screen{padding-bottom:210px!important}
 </style>
 </head>
 <body>
@@ -2096,7 +2098,7 @@ const MLRef = (function () {
     const [s1, s2, s3] = bar.querySelectorAll('button');
     s1.classList.toggle('done', !locked); { const t1 = locked ? '1' : '\u2713', i1 = s1.querySelector('i'); if (i1.textContent !== t1) i1.textContent = t1; }
     s2.classList.toggle('done', !!filled); { const t2 = filled ? '\u2713' : '2', i2 = s2.querySelector('i'); if (i2.textContent !== t2) i2.textContent = t2; }
-    s3.classList.toggle('now', !!filled && (!locked || true));
+    s3.classList.toggle('now', !!filled && (!locked || true)); { const sp3 = s3.querySelector('span'), t3 = filled ? 'Next: Advice' : 'Advice'; if (sp3 && sp3.textContent !== t3) sp3.textContent = t3; }
     note.hidden = !locked;
     heat.classList.toggle('ux-locked', locked);
   }
@@ -2320,10 +2322,12 @@ const MLRef = (function () {
     const msg = (t.querySelector('span') || {}).textContent || 'Change', spec = window.__mlSpec;
     if (curH !== heatId()) { L = []; curH = heatId(); }
     if (spec) { const had = L.some(e => !e.used); L.unshift({ msg, at: Date.now(), used: false, spec }); saveL(); renderLog(); if (had) { const n = document.createElement('div'); n.className = 'ux-undo-note'; n.textContent = 'Older changes are in Recent changes on the Heat tab'; t.querySelector('span').appendChild(n); } }
+    document.documentElement.style.setProperty('--toast-h', (t.offsetHeight + 12) + 'px');
     let x0 = 0, y0 = 0; t.addEventListener('touchstart', e => { x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; }, { passive: true });
     t.addEventListener('touchend', e => { const dx = Math.abs(e.changedTouches[0].clientX - x0), dy = Math.abs(e.changedTouches[0].clientY - y0); if (dx > 60 && dx > 2 * dy) t.remove(); }, { passive: true });
   });
   mo.observe(document.body, { childList: true });
+  setInterval(() => { if (!$('uxUndo')) document.documentElement.style.setProperty('--toast-h', '0px'); }, 500);
   const lg = document.createElement('div'); lg.className = 'card ux-log'; lg.id = 'uxLog'; card.insertAdjacentElement('afterend', lg);
   let showAll = false;
   window.__mlLogAdd = (msg, spec) => { if (curH !== heatId()) { L = []; curH = heatId(); } L.unshift({ msg, at: Date.now(), used: false, spec }); saveL(); renderLog(); };
@@ -2362,15 +2366,20 @@ const MLRef = (function () {
 // v3.34: inputs-disagree cross-check
 (function () {
   const $ = id => document.getElementById(id), T = $('f_temp'), C = $('f_curC'), host = $('uxClock'); if (!T || !C || !host) return;
-  const K = 'meltlab_xchk'; let H = []; try { H = JSON.parse(localStorage.getItem(K) || '[]') || []; } catch (e) {}
+  const K = 'meltlab_xchk', OK = 'meltlab_xchk_ok'; let H = []; try { H = JSON.parse(localStorage.getItem(K) || '[]') || []; } catch (e) {}
   const w = document.createElement('div'); w.className = 'card ux-xchk'; w.id = 'uxXchk'; w.style.display = 'none'; host.insertAdjacentElement('beforebegin', w);
   const hid = () => { const c = window.__mlClock && window.__mlClock.get(); return c && c.t0 || 0; };
   H = H.filter(r => r.h === hid());
+  const fm = x => String(Math.round(x * 100) / 100);
   function note() {
-    const a = H.slice(-2); let bad = false;
-    bad = a.length === 2 && a[1].t > a[0].t && a[1].c >= a[0].c;
-    w.style.display = bad ? '' : 'none';
-    if (bad) w.innerHTML = '<div class="ck-h">Inputs disagree</div><div class="ck-sub">Temperature went up but carbon did not come down. Check the sample or the sensor, then re-enter.</div>';
+    const a = H.slice(-2); const bad = a.length === 2 && a[1].t > a[0].t && a[1].c >= a[0].c;
+    let ok = null; try { ok = JSON.parse(localStorage.getItem(OK) || 'null'); } catch (e) {}
+    const sup = bad && ok && ok.h === hid() && ok.at === a[1].at;
+    w.style.display = bad && !sup ? '' : 'none';
+    if (bad && !sup) {
+      w.innerHTML = '<div class="ck-h">Inputs disagree</div><div class="ck-sub">Temperature went up (' + fm(a[0].t) + ' to ' + fm(a[1].t) + ') but carbon did not come down (' + fm(a[0].c) + ' to ' + fm(a[1].c) + '). Check the sample or the sensor, then re-enter.</div><button class="btn ghost sm" id="xkOk">Checked, values are right</button>';
+      w.querySelector('#xkOk').onclick = () => { try { localStorage.setItem(OK, JSON.stringify({ h: hid(), at: a[1].at })); } catch (e) {} note(); };
+    }
   }
   function snap(ev) { if (ev && !ev.isTrusted) return; const t = parseFloat(String(T.value).replace(',', '.')), c = parseFloat(String(C.value).replace(',', '.')); if (isNaN(t) || isNaN(c)) return; const l = H[H.length - 1]; if (l && l.t === t && l.c === c) return; H.push({ h: hid(), t, c, at: Date.now() }); H = H.slice(-10); try { localStorage.setItem(K, JSON.stringify(H)); } catch (e) {} note(); }
   T.addEventListener('change', snap); C.addEventListener('change', snap); window.__mlXchk = { snap: () => snap(null) };
@@ -2379,7 +2388,7 @@ const MLRef = (function () {
 
 /* ---- Self-update: check on open, focus, return, reconnect and every 5 minutes; reload at a safe moment ---- */
 (function () {
-  const VER = '3.34';
+  const VER = '3.35';
   try {
     const seen = localStorage.getItem('meltlab_ver_seen');
     if (seen && seen !== VER) {
