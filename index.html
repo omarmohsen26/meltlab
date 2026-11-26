@@ -290,6 +290,9 @@ html.ag-lock body>*:not(#authgate){visibility:hidden}
 .pf-r{display:flex;justify-content:space-between;gap:12px;padding:7px 0;border-top:1px solid rgba(255,255,255,.07);font-size:15px}.pf-r span{color:var(--muted,#A8ADB5)}.pf-r b{text-align:right;font-weight:600}
 .mat-old{color:#FFB454!important;font-weight:600}
 #matCard .row{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}#matCard .btn.sm{min-height:48px;width:auto;padding:0 14px}
+.ck-sub{font-size:15px;color:var(--muted,#A8ADB5);margin:0 0 8px}.ck-basis{display:block;font-size:12px;color:var(--muted,#A8ADB5);margin-top:2px}
+.ck-t{font-size:30px!important}
+.ux-undo{position:fixed;left:16px;right:16px;bottom:170px;z-index:60;background:#2b2f36;border:1px solid rgba(255,255,255,.15);border-radius:16px;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;font-size:15px}.ux-undo button{min-height:48px;padding:0 18px;border-radius:14px;border:0;background:#FFB454;color:#1a1305;font-weight:700}
 </style>
 </head>
 <body>
@@ -2188,8 +2191,11 @@ const MLRef = (function () {
     if (!run) {
       h += '<div class="imp-s">Tap Start heat at power on. The app then estimates how much is charged and updates the advice, so you only enter the carbon and temperature readings. Equipment, usual charge and practice are remembered from your last heat on this phone: change only what differs.</div><button class="btn" id="ckStart">Start heat</button>';
     } else {
-      h += '<div class="ck-t" id="ckT">' + mm(Date.now() - S.t0) + '</div><div class="imp-s">Power on. Charged now is estimated from the clock, the planned total and the power.</div>'
-        + '<div class="ck-row"><span>Charged (estimate)</span><b>' + (S.manual ? 'set by you: ' + $('f_charged').value : '~' + est) + ' t</b></div>'
+      let tapIn = null; try { const mm0 = model(); const pr0 = profile(mm0); tapIn = pr0.tEnd; } catch (e) {}
+      const elMin = Math.floor((Date.now() - S.t0) / 60000);
+      const basis = (() => { const bk = (S.baskets || 0) * (parseFloat(S.size) || 0); let r = num('f_feed', NaN); const fed = !isNaN(r); if (isNaN(r)) { try { r = Math.min(num('f_power', 0) * 1000 / konstV('eDri', 480), konstV('feedMaxTph', 160)); } catch (e) { r = 0; } } return (bk ? Math.round(bk) + ' t baskets + ' : '') + Math.round(r) + ' t/h ' + (fed ? 'entered feed rate' : 'DRI feed') + ' x ' + elMin + ' min'; })();
+      h += '<div class="ck-t" id="ckT">Power on ' + elMin + ' min</div><div class="ck-sub">' + (tapIn !== null ? 'Tap window in about ' + Math.round(tapIn) + ' min, ' + new Date(Date.now() + tapIn * 60000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '') + ' <span id="ckClk">(' + mm(Date.now() - S.t0) + ')</span></div>'
+        + '<div class="ck-row"><span>Charged <span class="pill">' + (S.manual ? 'entered by you' : 'estimated') + '</span><span class="ck-basis">' + (S.manual ? 'you set this value' : basis) + '</span></span><span class="ck-ctl"><b>' + (S.manual ? $('f_charged').value : '~' + est) + ' t</b><button class="btn ghost sm" id="ckFix">Correct</button></span></div>'
         + (S.manual ? '<button class="btn ghost sm" id="ckAuto">Use the estimate again</button>' : '')
         + '<div class="ck-row"><span>Baskets charged</span><span class="ck-ctl"><b>' + (S.baskets || 0) + '</b><button class="btn sm" id="ckBk">+1 basket</button></span></div>'
         + '<div class="ck-row"><span>Jets running</span><span class="ck-ctl"><button class="btn ghost sm" id="ckJm" aria-label="One jet fewer">-</button><b>' + jr + ' of ' + ji + '</b><button class="btn ghost sm" id="ckJp" aria-label="One jet more">+</button></span></div>'
@@ -2197,19 +2203,27 @@ const MLRef = (function () {
     }
     card.innerHTML = h; wire();
   }
+  let utm = null;
+  function undo(msg, fn) { let t = document.getElementById('uxUndo'); if (t) t.remove(); t = document.createElement('div'); t.id = 'uxUndo'; t.className = 'ux-undo'; t.innerHTML = '<span>' + msg + '</span><button type="button">Undo</button>'; document.body.appendChild(t); t.querySelector('button').onclick = () => { clearTimeout(utm); t.remove(); fn(); }; clearTimeout(utm); utm = setTimeout(() => t.remove(), 5000); try { if (navigator.vibrate) navigator.vibrate(20); } catch (e) {} }
+  // keep the screen awake and buzz when the tap window opens
+  let wl = null; async function wake() { try { if (S.t0 && 'wakeLock' in navigator && !wl) { wl = await navigator.wakeLock.request('screen'); wl.addEventListener('release', () => { wl = null; }); } } catch (e) {} }
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') wake(); });
+  let buzzed = false;
+  setInterval(() => { if (!S.t0) { buzzed = false; return; } wake(); try { const m0 = model(), p0 = profile(m0); const el = (Date.now() - S.t0) / 60000; if (!buzzed && p0.tEnd <= 0.5 && el > 5) { buzzed = true; if (navigator.vibrate) navigator.vibrate([300, 150, 300]); } } catch (e) {} }, 15000);
   function wire() {
     const q = id => card.querySelector('#' + id);
     if (q('ckStart')) q('ckStart').onclick = () => { S = { t0: Date.now(), baskets: 0, size: S.size || '', manual: false }; save(); applyEst(); draw(); };
     if (q('ckReset')) q('ckReset').onclick = () => { if (!confirm('Reset the heat clock?')) return; S = { t0: 0, baskets: 0, size: S.size || '', manual: false }; save(); draw(); };
+    if (q('ckFix')) q('ckFix').onclick = () => { const e = $('f_charged'); if (e) { e.scrollIntoView({ block: 'center' }); e.focus(); e.select && e.select(); } };
     if (q('ckAuto')) q('ckAuto').onclick = () => { S.manual = false; save(); applyEst(); draw(); };
     if (q('ckBk')) q('ckBk').onclick = () => {
       if (!parseFloat(S.size)) { const v = window.prompt('Basket size in tonnes (asked once, saved on this device)', ''); const n = parseFloat(String(v || '').replace(',', '.')); if (!n || n <= 0) return; S.size = String(n); }
-      S.baskets = (S.baskets || 0) + 1; save(); applyEst(); draw(); };
-    const jet = d => () => { const e = $('f_jetsRunning'), ji = num('f_jetsInstalled', 2); if (!e) return; e.value = Math.min(ji, Math.max(0, num('f_jetsRunning', 1) + d)); fire(e); draw(); };
+      const prev = { baskets: S.baskets || 0 }; S.baskets = prev.baskets + 1; save(); applyEst(); draw(); undo('Basket added', () => { S.baskets = prev.baskets; save(); applyEst(); draw(); }); };
+    const jet = d => () => { const e = $('f_jetsRunning'), ji = num('f_jetsInstalled', 2); if (!e) return; const old0 = e.value; e.value = Math.min(ji, Math.max(0, num('f_jetsRunning', 1) + d)); fire(e); draw(); undo('Jets changed', () => { e.value = old0; fire(e); draw(); }); };
     if (q('ckJm')) q('ckJm').onclick = jet(-1); if (q('ckJp')) q('ckJp').onclick = jet(1);
   }
   const ch = $('f_charged'); if (ch) ch.addEventListener('input', ev => { if (ev.isTrusted && S.t0) { S.manual = true; save(); draw(); } });
-  setInterval(() => { if (!S.t0) return; const t = $('ckT'); if (t) t.textContent = mm(Date.now() - S.t0); }, 1000);
+  setInterval(() => { if (!S.t0) return; const t = $('ckClk'); if (t) t.textContent = '(' + mm(Date.now() - S.t0) + ')'; }, 1000);
   setInterval(() => { if (S.t0) { applyEst(); if (!card.contains(document.activeElement)) draw(); } }, 20000);
   draw(); if (S.t0) applyEst();
   window.__mlClock = { get: () => S, est: estimate };
@@ -2253,7 +2267,7 @@ const MLRef = (function () {
 
 /* ---- Self-update: check on open, focus, return, reconnect and every 5 minutes; reload at a safe moment ---- */
 (function () {
-  const VER = '3.27';
+  const VER = '3.28';
   try {
     const seen = localStorage.getItem('meltlab_ver_seen');
     if (seen && seen !== VER) {
