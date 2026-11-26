@@ -2789,7 +2789,7 @@ const MLRef = (function () {
   const fix = () => { document.querySelectorAll('input,select,textarea').forEach(e => { if (e.type === 'hidden' || e.type === 'file' || e.getAttribute('aria-label') || e.getAttribute('aria-labelledby')) return; if (e.labels && e.labels.length) { const t = e.labels[0].textContent.replace(/\s+/g, ' ').trim(); if (t) { e.setAttribute('aria-label', t.slice(0, 80)); return; } } if (e.id === 'agE') e.setAttribute('aria-label', 'Email address'); else if (e.id === 'agP') e.setAttribute('aria-label', 'Password'); else e.setAttribute('aria-label', nameOf(e)); }); };
   setInterval(fix, 2500); fix();
 })();
-(function () { const put = v => { const g = document.getElementById('authgate'), c = g && g.querySelector('.ag-card'); if (!c) return; if (!c.querySelector('#agVer')) { const d = document.createElement('div'); d.id = 'agVer'; d.textContent = 'MeltLab v' + v; d.style.cssText = 'text-align:center;font-size:13px;opacity:.8;padding:10px'; c.appendChild(d); } if (!c.querySelector('#agDemo')) { const a = document.createElement('a'); a.id = 'agDemo'; a.href = '?demo=1'; a.textContent = 'Try demo (no sign-in, made-up numbers)'; a.style.cssText = 'display:block;text-align:center;font-size:16px;font-weight:700;padding:12px;color:#FFB454;text-decoration:underline'; c.appendChild(a); } }; const BV = '3.48'; put(BV); setInterval(() => { put(BV); const f = document.querySelector('footer'); if (f && !f.dataset.v) { f.dataset.v = 1; f.textContent = 'MeltLab v' + BV + '. ' + f.textContent.replace(/^MeltLab v3\.\s*/, ''); } }, 800); })();
+(function () { const put = v => { const g = document.getElementById('authgate'), c = g && g.querySelector('.ag-card'); if (!c) return; if (!c.querySelector('#agVer')) { const d = document.createElement('div'); d.id = 'agVer'; d.textContent = 'MeltLab v' + v; d.style.cssText = 'text-align:center;font-size:13px;opacity:.8;padding:10px'; c.appendChild(d); } if (!c.querySelector('#agDemo')) { const a = document.createElement('a'); a.id = 'agDemo'; a.href = '?demo=1'; a.textContent = 'Try demo (no sign-in, made-up numbers)'; a.style.cssText = 'display:block;text-align:center;font-size:16px;font-weight:700;padding:12px;color:#FFB454;text-decoration:underline'; c.appendChild(a); } }; const BV = '3.49'; put(BV); setInterval(() => { put(BV); const f = document.querySelector('footer'); if (f && !f.dataset.v) { f.dataset.v = 1; f.textContent = 'MeltLab v' + BV + '. ' + f.textContent.replace(/^MeltLab v3\.\s*/, ''); } }, 800); })();
 
 // v3.46: delta vs last logged heat
 (function () {
@@ -2817,9 +2817,47 @@ const MLRef = (function () {
   setInterval(draw, 2000); draw();
 })();
 
+/* ---- v3.49: sticky next-step block shows the readings; empty states know them ---- */
+(function () {
+  const $ = id => document.getElementById(id);
+  const heat = $('s_heat'); if (!heat) return;
+  const goBtn = heat.querySelector('.btn[data-go="advice"]');
+  const st = document.createElement('style');
+  st.textContent = '#nxWrap{position:sticky;bottom:96px;z-index:5;background:color-mix(in srgb,var(--paper) 90%,transparent);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:20px;box-shadow:0 10px 30px rgba(0,0,0,.35);padding:8px 10px 10px;margin-top:10px}'
+    + '#nxWrap .nx-sum{text-align:center;font-size:13px;line-height:1.3;color:var(--muted);padding:2px 4px 8px}'
+    + '#nxWrap .nx-sum b{color:var(--ink);font-weight:600;white-space:nowrap}'
+    + '#s_heat .btn[data-go="advice"]{position:static;box-shadow:none;width:100%}';
+  document.head.appendChild(st);
+  let sum = null;
+  if (goBtn) {
+    const w = document.createElement('div'); w.id = 'nxWrap';
+    goBtn.insertAdjacentElement('beforebegin', w);
+    sum = document.createElement('div'); sum.className = 'nx-sum';
+    w.appendChild(sum); w.appendChild(goBtn);
+  }
+  const clean = v => String(v == null ? '' : v).replace(/[<>&]/g, '');
+  const readings = () => { const c = clean(($('f_curC') || {}).value), t = clean(($('f_temp') || {}).value); return { c, t, has: !!(c || t) }; };
+  const updBar = () => {
+    if (!sum) return; const r = readings();
+    sum.innerHTML = !r.has ? 'No readings yet'
+      : 'Readings: ' + (r.c ? 'C <b>' + r.c + ' %</b>' : 'C <b>not set</b>') + ' &middot; ' + (r.t ? '<b>' + r.t + ' C</b>' : 'temp <b>not set</b>');
+  };
+  const updEmpty = () => {
+    const r = readings();
+    const h = r.has
+      ? '<b>Readings entered' + (r.c ? ' &middot; C ' + r.c + ' %' : '') + (r.t ? ' &middot; ' + r.t + ' C' : '') + '.</b><p class="sub" style="margin:6px 0 12px">The plan is not computed until you ask for it. Tap Get advice on the Heat tab and it appears here.</p><button class="btn" data-go="heat">Review readings</button>'
+      : '<b>No heat entered yet.</b><p class="sub" style="margin:6px 0 12px">Enter a heat to get advice. Nothing here is based on the textbook defaults until you do.</p><button class="btn" data-go="heat">Enter a heat</button>';
+    document.querySelectorAll('.ux-emptycard').forEach(x => { x.innerHTML = h; });
+  };
+  const upd = () => { updBar(); updEmpty(); };
+  document.addEventListener('input', upd); document.addEventListener('change', upd);
+  setTimeout(upd, 500); setTimeout(upd, 2600);
+  upd();
+})();
+
 /* ---- Self-update: check on open, focus, return, reconnect and every 5 minutes; reload at a safe moment ---- */
 (function () {
-  const VER = '3.48';
+  const VER = '3.49';
   try {
     const seen = localStorage.getItem('meltlab_ver_seen');
     if (seen && seen !== VER) {
