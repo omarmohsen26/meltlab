@@ -304,6 +304,7 @@ body.paused #uxClock,body.paused #uxSmp,body.paused #uxProf{opacity:.55}body.pau
 .screen{padding-bottom:calc(210px + var(--toast-h,0px))!important}.ux-undo{bottom:166px}
 .ux-undo{top:max(12px,env(safe-area-inset-top));bottom:auto!important}.screen{padding-bottom:210px!important}
 .ux-undo{top:auto!important;bottom:164px!important;padding:4px 6px 4px 14px;min-height:0;font-size:14px}.ux-undo button{min-height:40px;padding:0 16px}
+#uxXset .field{display:block;margin:8px 0}#uxXset input{display:block;width:100%;box-sizing:border-box;margin-top:6px;min-height:52px;padding:0 16px;border-radius:16px;border:1px solid rgba(255,255,255,.18);background:rgba(0,0,0,.28);color:#fff;font-size:18px;font-family:inherit}
 </style>
 </head>
 <body>
@@ -2365,32 +2366,52 @@ const MLRef = (function () {
   draw();
 })();
 
-// v3.34: inputs-disagree cross-check
+// v3.34: inputs-disagree cross-check (generic, adjustable thresholds)
 (function () {
   const $ = id => document.getElementById(id), T = $('f_temp'), C = $('f_curC'), host = $('uxClock'); if (!T || !C || !host) return;
-  const K = 'meltlab_xchk', OK = 'meltlab_xchk_ok'; let H = []; try { H = JSON.parse(localStorage.getItem(K) || '[]') || []; } catch (e) {}
+  const K = 'meltlab_xchk', OK = 'meltlab_xchk_ok', SK = 'meltlab_xset';
+  const DEF = { dT: 20, gap: 3 }; let X = Object.assign({}, DEF); try { Object.assign(X, JSON.parse(localStorage.getItem(SK) || '{}')); } catch (e) {}
+  let H = []; try { H = JSON.parse(localStorage.getItem(K) || '[]') || []; } catch (e) {}
   const w = document.createElement('div'); w.className = 'card ux-xchk'; w.id = 'uxXchk'; w.style.display = 'none'; host.insertAdjacentElement('beforebegin', w);
   const hid = () => { const c = window.__mlClock && window.__mlClock.get(); return c && c.t0 || 0; };
   H = H.filter(r => r.h === hid());
   const fm = x => String(Math.round(x * 100) / 100);
+  function disagree(a0, a1) {
+    const gap = (a1.at - a0.at) / 60000, rise = a1.t - a0.t;
+    if (rise < X.dT || gap < X.gap) return false;
+    if (a1.c < a0.c) return false;
+    return a1.c > a0.c || gap >= 3 * X.gap;
+  }
   function note() {
-    const a = H.slice(-2); const bad = a.length === 2 && a[1].t > a[0].t && a[1].c >= a[0].c;
+    const a = H.slice(-2); const bad = a.length === 2 && disagree(a[0], a[1]);
     let ok = null; try { ok = JSON.parse(localStorage.getItem(OK) || 'null'); } catch (e) {}
-    const sup = bad && ok && ok.h === hid() && ok.at === a[1].at;
+    const sup = bad && ok && ok.h === hid() && ok.k === a[0].at + '-' + a[1].at;
     w.style.display = bad && !sup ? '' : 'none';
     if (bad && !sup) {
       w.innerHTML = '<div class="ck-h">Inputs disagree</div><div class="ck-sub">Temperature went up (' + fm(a[0].t) + ' to ' + fm(a[1].t) + ') but carbon did not come down (' + fm(a[0].c) + ' to ' + fm(a[1].c) + '). Check the sample or the sensor, then re-enter.</div><button class="btn ghost sm" id="xkOk">Checked, values are right</button>';
-      w.querySelector('#xkOk').onclick = () => { try { localStorage.setItem(OK, JSON.stringify({ h: hid(), at: a[1].at })); } catch (e) {} note(); };
+      w.querySelector('#xkOk').onclick = () => { try { localStorage.setItem(OK, JSON.stringify({ h: hid(), k: a[0].at + '-' + a[1].at })); } catch (e) {} note(); };
     }
   }
-  function snap(ev) { if (ev && !ev.isTrusted) return; const t = parseFloat(String(T.value).replace(',', '.')), c = parseFloat(String(C.value).replace(',', '.')); if (isNaN(t) || isNaN(c)) return; const l = H[H.length - 1]; if (l && l.t === t && l.c === c) return; H.push({ h: hid(), t, c, at: Date.now() }); H = H.slice(-10); try { localStorage.setItem(K, JSON.stringify(H)); } catch (e) {} note(); }
-  T.addEventListener('change', snap); C.addEventListener('change', snap); window.__mlXchk = { snap: () => snap(null) };
+  function add(t, c, at) { const l = H[H.length - 1]; if (l && l.t === t && l.c === c) return; H.push({ h: hid(), t, c, at }); H = H.slice(-10); try { localStorage.setItem(K, JSON.stringify(H)); } catch (e) {} note(); }
+  function snap(ev) { if (ev && !ev.isTrusted) return; const t = parseFloat(String(T.value).replace(',', '.')), c = parseFloat(String(C.value).replace(',', '.')); if (isNaN(t) || isNaN(c)) return; add(t, c, Date.now()); }
+  T.addEventListener('change', snap); C.addEventListener('change', snap);
+  window.__mlXchk = { snap: () => snap(null), add };
+  // adjustable thresholds in Settings
+  const st = $('s_settings');
+  if (st) {
+    const sc = document.createElement('div'); sc.className = 'card'; sc.id = 'uxXset';
+    sc.innerHTML = '<h3 style="margin:0 0 6px">Inputs check</h3><p class="sub" style="margin:0 0 10px">The "Inputs disagree" card shows when temperature rises by at least this much, at least this many minutes apart, and carbon has not come down. These are generic starting values, not plant figures. Set your own.</p><label class="field">Minimum temperature rise<input id="xsT" type="number" inputmode="decimal" min="1" step="1"></label><label class="field">Minimum minutes between the two entries<input id="xsG" type="number" inputmode="decimal" min="1" step="1"></label>';
+    const hd = st.querySelector('header'); (hd || st.firstElementChild).insertAdjacentElement('afterend', sc);
+    const a = sc.querySelector('#xsT'), b = sc.querySelector('#xsG'); a.value = X.dT; b.value = X.gap;
+    const sv = () => { const d = parseFloat(a.value), g = parseFloat(b.value); if (d > 0) X.dT = d; if (g > 0) X.gap = g; try { localStorage.setItem(SK, JSON.stringify(X)); } catch (e) {} note(); };
+    a.addEventListener('change', sv); b.addEventListener('change', sv);
+  }
   note();
 })();
 
 /* ---- Self-update: check on open, focus, return, reconnect and every 5 minutes; reload at a safe moment ---- */
 (function () {
-  const VER = '3.36';
+  const VER = '3.37';
   try {
     const seen = localStorage.getItem('meltlab_ver_seen');
     if (seen && seen !== VER) {
