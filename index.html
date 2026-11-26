@@ -386,6 +386,9 @@ html:not(.night) .ux-sheet .sh-i{background:#fff;color:#1b1b1b}
 html:not(.night) .ux-delta .dl-r i.u{color:#9a5a00}html:not(.night) .ux-delta .dl-r i.d{color:#0b5d99}
 .ux-sheet .sh-a .btn.ghost{color:#1b1b1b;background:transparent;border:2px solid #7a6a50;font-weight:700}
 html.night .ux-sheet .sh-a .btn.ghost{color:#fff;border-color:#8a96a3}
+.ux-sheet .ip-b{max-height:92vh;overflow:auto}.ux-sheet .ip-w{max-height:46vh;overflow:auto;border:1px solid rgba(128,128,128,.5);border-radius:10px;margin:0 0 14px;background:#fff}.ux-sheet .ip-w img{display:block;width:100%;height:auto}
+html:not(.night) #uxGrp input[type=number],html:not(.night) #uxGrp input[type=text]{color:#111!important;-webkit-text-fill-color:#111}
+html:not(.night) #uxGrp input::placeholder{color:#666!important}
 </style>
 </head>
 <body>
@@ -562,6 +565,7 @@ function r0(x) { return Math.round(x).toLocaleString('en-US'); }
 function r1(x) { return (Math.round(x * 10) / 10).toLocaleString('en-US'); }
 function r2(x) { return (Math.round(x * 100) / 100).toLocaleString('en-US'); }
 function rc(x) { return String(+(+x).toFixed(3)); }
+function rcp(a, c) { const dd = x => { const s = rc(x), i = s.indexOf('.'); return i < 0 ? 0 : s.length - i - 1; }; const d = Math.max(2, dd(a), dd(c)); return [(+a).toFixed(d), (+c).toFixed(d)]; }
 function mmss(min) { const m = Math.floor(min), s = Math.round((min - m) * 60); return m + ':' + String(s).padStart(2, '0'); }
 
 function model() {
@@ -800,7 +804,7 @@ function render() {
     document.getElementById('tLime').textContent = r0(m.limeTotal);
     document.getElementById('tEnergy').textContent = m.finalKwhT !== null ? r0(m.finalKwhT) : r0(m.eTotal / m.total);
     document.getElementById('tEnergyS').textContent = m.finalKwhT !== null ? 'kWh/t at tap' : 'kWh/t model';
-    document.getElementById('whyText').textContent = m.jetAdvice + '. Carbon ' + (m.c0 === null ? 'not entered' : rc(m.c0) + ' % to ' + rc(m.ct) + ' %') + ', about ' + r0(m.kgC) + ' kg to remove.';
+    document.getElementById('whyText').textContent = m.jetAdvice + '. Carbon ' + (m.c0 === null ? 'not entered' : rcp(m.c0, m.ct)[0] + ' % now, aim ' + rcp(m.c0, m.ct)[1] + ' %') + ', about ' + r0(m.kgC) + ' kg to remove.';
     const warnTxt = m.flowNeeded !== Infinity && m.flowNeeded / m.jets > m.jetMax;
     const lim = document.getElementById('limits');
     lim.className = 'limits ' + (warnTxt || m.feederBound ? 'warnb' : 'okb');
@@ -827,7 +831,7 @@ function render() {
         'Melt remaining ' + r0(m.eMeltRem) + ' kWh (' + r0(m.driRem) + ' t DRI x ' + konst('eDri') + ' + ' + r0(m.scrapRem) + ' t scrap x ' + konst('eScrap') + ') + superheat ' + r0(m.eHeat) + ' kWh (' + r0(m.dT) + ' C x ' + r0(m.total) + ' t x ' + konst('cpLiquid') + ') - decarb credit ' + r0(m.credit) + ' kWh (' + r0(m.kgC) + ' kg C x ' + konst('creditKwhPerKgC') + '). Minutes = energy / power.',
         'The optimal heat runs full available power while the slag is foamed and the arc covered, then refines. ' + (m.power < numOr('pwrLimit', 60) ? 'You have headroom to the transformer limit (' + r0(numOr('pwrLimit', 60)) + ' MW) if the practice allows.' : 'You are at the transformer limit.') + (m.finalKwhT !== null ? ' Projected final intensity ' + r0(m.finalKwhT) + ' kWh/t - compare with your good heats.' : '')));
     R.push(reco('Oxygen - blow ' + r0(m.o2Rem) + ' Nm3 more', m.jets + ' jet' + (m.jets > 1 ? 's' : '') + ' at ' + r0(m.perJet) + ' Nm3/h',
-        m.jetAdvice + '. C to remove = (' + rc(m.c0 ?? 0) + ' - ' + rc(m.ct) + ') x 10 x ' + r0(m.total) + ' = ' + r0(m.kgC) + ' kg. O2 = kg C x (' + konst('fCO') + ' x 0.933 + ' + r2(1 - konst('fCO')) + ' x 1.866) / ' + konst('o2Utilization') + ' = ' + r0(m.o2Total) + ' Nm3 total' + (m.o2Used ? ', ' + r0(m.o2Used) + ' already blown' : '') + '. Flow for a ' + r0(m.window) + ' min window = ' + (m.flowNeeded === Infinity ? '-' : r0(m.flowNeeded)) + ' Nm3/h.',
+        m.jetAdvice + '. C to remove = (' + rcp(m.c0 ?? 0, m.ct)[0] + ' - ' + rcp(m.c0 ?? 0, m.ct)[1] + ') x 10 x ' + r0(m.total) + ' = ' + r0(m.kgC) + ' kg. O2 = kg C x (' + konst('fCO') + ' x 0.933 + ' + r2(1 - konst('fCO')) + ' x 1.866) / ' + konst('o2Utilization') + ' = ' + r0(m.o2Total) + ' Nm3 total' + (m.o2Used ? ', ' + r0(m.o2Used) + ' already blown' : '') + '. Flow for a ' + r0(m.window) + ' min window = ' + (m.flowNeeded === Infinity ? '-' : r0(m.flowNeeded)) + ' Nm3/h.',
         'Decarburization is free energy: each kg of carbon blown returns about ' + konst('creditKwhPerKgC') + ' kWh to the bath. The jet program keeps every running jet inside its coherent band with the fewest jets - below the band the jet splashes, above it the nozzle erodes.',
         '<svg viewBox="0 0 320 52">' + bandSvg(m) + '</svg>'));
     R.push(reco('Carbon injection - ride the oxygen', '~' + r1(m.cRate) + ' kg/min now, ~' + r0(m.cTotal) + ' kg this heat',
@@ -2052,9 +2056,9 @@ const MLRef = (function () {
     const tot = need('total', 'Total charge'), pw = need('power', 'Power available'); const ch = g('charged'), tp = g('temp'), pl = g('pwrLimit');
     if (isNaN(ch) || ch < 0) { m.push('Charged so far must be 0 or more.'); bad.push('charged'); }
     else if (tot > 0 && ch > tot) { m.push('Charged so far is more than the total charge.'); bad.push('charged'); }
-    if (!(tp > 1000 && tp < 1800)) { m.push('Temperature should be between 1000 and 1800 C.'); bad.push('temp'); }
+    const rg = k => { const x = parseFloat(localStorage.getItem(k)); return x > 0 ? x : null; }, tlo = rg('meltlab_tlo') || 1000, thi = rg('meltlab_thi') || 1800; if (!(tp > tlo && tp < thi)) { m.push(isNaN(tp) ? 'Temperature now is needed.' : 'Temperature ' + tp + ' C is outside your usual range ' + tlo + ' to ' + thi + ' C (Settings). Entries are refused only outside 1 to 2500 C.'); bad.push('temp'); }
     if (pl > 0 && pw > pl) { m.push('Power available is above the transformer limit.'); bad.push('power'); }
-    const c = g('curC'); if (isNaN(c) || c < 0) { m.push('Carbon now is needed.'); bad.push('curC'); }
+    const c = g('curC'); if (isNaN(c) || c < 0) { m.push('Carbon now is needed.'); bad.push('curC'); } else { const cmx = parseFloat(localStorage.getItem('meltlab_cmax')) > 0 ? parseFloat(localStorage.getItem('meltlab_cmax')) : 5, ce = document.getElementById('f_curC'); if (c > cmx && !(ce && ce.dataset.kept === String(c))) { m.push('Carbon ' + c + ' % is above your ask-before ceiling of ' + cmx + ' % (Settings). Entries are refused only above 100 %.'); bad.push('curC'); } }
     return { m, bad };
   };
   const all = ['total', 'charged', 'power', 'pwrLimit', 'temp', 'curC'];
@@ -2127,7 +2131,7 @@ const MLRef = (function () {
     if (st.length) {
       const g = (s, q) => (s.querySelector(q) || {}).textContent || '';
       const tm0 = g(st[0], '.tm'), tm1 = st[1] ? g(st[1], '.tm') : '';
-      next.innerHTML = '<div class="l">Do this next</div><div class="t">' + g(st[0], 'b').replace(/</g, '&lt;') + '</div><div class="d">' + g(st[0], '.d').replace(/</g, '&lt;') + '</div><div class="w">' + (tm1 ? 'Window: ' + tm0 + ' to ' + tm1 + ' from now' : 'From ' + tm0 + ' from now') + '</div>';
+      next.innerHTML = '<div class="l">Do this next</div><div class="t">' + g(st[0], 'b').replace(/</g, '&lt;') + '</div><div class="d">' + g(st[0], '.d').replace(/</g, '&lt;') + '</div><div class="w">' + (/^0:00$/.test(tm0) && (!tm1 || /^0:00$/.test(tm1)) ? 'Window: now' : /^0:00$/.test(tm0) ? 'Window: now to ' + tm1 + ' from now' : (tm1 ? 'Window: ' + tm0 + ' to ' + tm1 + ' from now' : 'From ' + tm0 + ' from now')) + '</div>';
     }
     const v = s => { const e = si.querySelectorAll('.stat')[s]; return e ? [e.querySelector('.v').textContent, e.querySelector('.s').textContent] : ['', '']; };
     const pt = (document.getElementById('profT') || {}).textContent || '';
@@ -2354,7 +2358,7 @@ const MLRef = (function () {
   const tm = o => new Date(Date.now() + o * 60000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   const f0 = x => { try { return r0(x); } catch (e) { return Math.round(x); } };
   const f1 = x => Math.round(x * 10) / 10;
-  const ph = (n, title, a, b, rows, cls) => '<div class="pf ' + (cls || '') + (b !== null && b <= 0.5 ? ' past' : (a <= 0.5 && (b === null || b > 0.5) && !HERE.d ? ' here' : '')) + '">' + ((a <= 0.5 && (b === null || b > 0.5) && !HERE.d && (HERE.d = 1)) ? '<div class="pf-now">YOU ARE HERE</div>' : '') + '<div class="pf-h"><span class="pf-n">' + n + '</span><span class="pf-t">' + title + '</span></div><div class="pf-w">' + tm(a) + ' (+' + f0(a) + ' min)' + (b !== null ? ' to ' + tm(b) + ' (+' + f0(b) + ')' : '') + '</div>' + rows.map(r => '<div class="pf-r"><span>' + r[0] + '</span><b>' + r[1] + '</b></div>').join('') + '</div>';
+  const ph = (n, title, a, b, rows, cls) => '<div class="pf ' + (cls || '') + (b !== null && b <= 0.5 ? ' past' : (a <= 0.5 && (b === null || b > 0.5) && !HERE.d ? ' here' : '')) + '">' + ((a <= 0.5 && (b === null || b > 0.5) && !HERE.d && (HERE.d = 1)) ? '<div class="pf-now">YOU ARE HERE</div>' : '') + '<div class="pf-h"><span class="pf-n">' + n + '</span><span class="pf-t">' + title + '</span></div><div class="pf-w">' + (parseFloat(f0(a)) === 0 ? 'now' + (b !== null && parseFloat(f0(b)) !== 0 ? ' to ' + tm(b) + ' (+' + f0(b) + ' min)' : '') : tm(a) + ' (+' + f0(a) + ' min)' + (b !== null ? ' to ' + tm(b) + ' (+' + f0(b) + ')' : '')) + '</div>' + rows.map(r => '<div class="pf-r"><span>' + r[0] + '</span><b>' + r[1] + '</b></div>').join('') + '</div>';
   const HERE = { d: 0 };
   function draw() {
     HERE.d = 0; let m, pr; try { m = model(); pr = profile(m); } catch (e) { return; }
@@ -2368,7 +2372,7 @@ const MLRef = (function () {
     if (m.scrapRem > 0) rows1.push(['Scrap still to charge', f1(m.scrapRem) + ' t' + (sz ? ' (about ' + Math.ceil(m.scrapRem / sz) + ' baskets of ' + sz + ' t)' : '')]);
     rows1.push(['Lime', f0(m.limeTotal) + ' kg from +' + f0(lime0) + ' min, steady with the charge']);
     rows1.push(['Dolomite', f0(m.doloTotal) + ' kg, same timing']);
-    const rows2 = [['Oxygen', f0(m.o2Rem) + ' Nm3 total at ' + f0(pr.o2Flow) + ' Nm3/h'], ['Jets', m.jets + ' running, ' + f0(m.perJet) + ' Nm3/h each'], ['Carbon injection', f0(pr.cFlow) + ' kg/min'], ['Carbon', (m.c0 === null ? 'no reading' : (+(+m.c0).toFixed(3)) + ' %') + ' to ' + (+(+m.ct).toFixed(3)) + ' %']];
+    const rows2 = [['Oxygen', f0(m.o2Rem) + ' Nm3 total at ' + f0(pr.o2Flow) + ' Nm3/h'], ['Jets', m.jets + ' running, ' + f0(m.perJet) + ' Nm3/h each'], ['Carbon injection', f0(pr.cFlow) + ' kg/min'], ['Carbon', (m.c0 === null ? 'no reading' : rcp(m.c0, m.ct)[0] + ' %') + ', aim ' + rcp(m.c0, m.ct)[1] + ' %']];
     const rows3 = [['Foamy slag', 'hold from the start of oxygen until tap'], ['Basicity aim (CaO/SiO2)', aim !== null ? String(aim) : 'see Settings'], ['FeO and foam', 'no target set in the app, follow the plant practice']];
     const rows4 = [['Bath now', f0(m.tNow) + ' C'], ['Liquidus', f0(m.tLiq) + ' C'], ['Tap aim', f0(m.tAim) + ' C (' + (m.dT > 0 ? f0(m.dT) + ' C to gain' : 'reached') + ')']];
     const rows5 = [['FeMn', f0(m.feMn) + ' kg' + (window.mlBags ? window.mlBags(m.feMn, 'feMn') : '')], ['FeSi', (m.siNeed > 0 ? f0(m.feSi) : 0) + ' kg' + (m.siNeed > 0 && window.mlBags ? window.mlBags(m.feSi, 'feSi') : '')], ['Energy', f0(kwhT) + ' kWh/t'], ['Tap temperature aim', f0(m.tAim) + ' C']];
@@ -2619,8 +2623,9 @@ const MLRef = (function () {
   if (st) {
     const sc = document.createElement('div'); sc.className = 'card'; sc.id = 'uxPrefs';
     const PZ = window.__mlPz || { a: 5, b: 15 };
-    sc.innerHTML = '<h3 style="margin:0 0 6px">Display and timing</h3><p class="sub" style="margin:0 0 10px">The minute limits are generic starting values, not plant figures. Set your own.</p><label class="ck-row"><span>Night mode (red, low glare)</span><input type="checkbox" id="pfNight"></label><label class="ck-row"><span>Enter key moves to the next field</span><input type="checkbox" id="pfAdv"></label><label class="field">Ask before accepting carbon above (%). Generic starting value, adjustable.<input id="pfCmax" type="number" inputmode="decimal" min="0.1" max="100" step="0.1"></label><label class="field">Readings out of date after (min)<input id="pfStale" type="number" inputmode="decimal" min="1" step="1"></label><label class="field">Pause turns amber after (min)<input id="pfA" type="number" inputmode="decimal" min="1" step="1"></label><label class="field">Pause turns red after (min)<input id="pfB" type="number" inputmode="decimal" min="1" step="1"></label>';
+    sc.innerHTML = '<h3 style="margin:0 0 6px">Display and timing</h3><p class="sub" style="margin:0 0 10px">The minute limits are generic starting values, not plant figures. Set your own.</p><label class="ck-row"><span>Night mode (red, low glare)</span><input type="checkbox" id="pfNight"></label><label class="ck-row"><span>Enter key moves to the next field</span><input type="checkbox" id="pfAdv"></label><label class="field">Ask before accepting carbon above (%). Generic starting value, adjustable.<input id="pfCmax" type="number" inputmode="decimal" min="0.1" max="100" step="0.1"></label><label class="field">Usual temperature range, low (C). Generic starting value, adjustable.<input id="pfTlo" type="number" inputmode="decimal" min="1" max="2500" step="1"></label><label class="field">Usual temperature range, high (C). Generic starting value, adjustable.<input id="pfThi" type="number" inputmode="decimal" min="1" max="2500" step="1"></label><label class="field">Readings out of date after (min)<input id="pfStale" type="number" inputmode="decimal" min="1" step="1"></label><label class="field">Pause turns amber after (min)<input id="pfA" type="number" inputmode="decimal" min="1" step="1"></label><label class="field">Pause turns red after (min)<input id="pfB" type="number" inputmode="decimal" min="1" step="1"></label>';
     const anchor = $('uxBags') || $('uxXset') || st.querySelector('header') || st.firstElementChild; anchor.insertAdjacentElement('afterend', sc);
+    [['pfTlo', 'meltlab_tlo', 1000], ['pfThi', 'meltlab_thi', 1800]].forEach(([id, k, d]) => { const e = sc.querySelector('#' + id); e.value = parseFloat(localStorage.getItem(k)) > 0 ? localStorage.getItem(k) : d; e.addEventListener('change', () => { const x = parseFloat(e.value); if (x > 0 && x <= 2500) { try { localStorage.setItem(k, String(x)); } catch (er) {} } else e.value = parseFloat(localStorage.getItem(k)) > 0 ? localStorage.getItem(k) : d; }); });
     const cx = sc.querySelector('#pfCmax'); cx.value = parseFloat(localStorage.getItem('meltlab_cmax')) > 0 ? localStorage.getItem('meltlab_cmax') : 5; cx.addEventListener('change', () => { const x = parseFloat(cx.value); if (x > 0 && x <= 100) { try { localStorage.setItem('meltlab_cmax', String(x)); } catch (e) {} } else { cx.value = parseFloat(localStorage.getItem('meltlab_cmax')) > 0 ? localStorage.getItem('meltlab_cmax') : 5; } });
     const ad = sc.querySelector('#pfAdv'); ad.checked = localStorage.getItem('meltlab_adv') !== '0'; ad.onchange = () => { try { localStorage.setItem('meltlab_adv', ad.checked ? '1' : '0'); } catch (e) {} }; const nm = sc.querySelector('#pfNight'); nm.checked = localStorage.getItem('meltlab_night') === '1'; const ap = () => document.documentElement.classList.toggle('night', nm.checked); ap();
     nm.onchange = () => { try { localStorage.setItem('meltlab_night', nm.checked ? '1' : '0'); } catch (e) {} ap(); };
@@ -2748,7 +2753,7 @@ const MLRef = (function () {
     b.onclick = async () => {
       const L = []; const g = id => ($(id) ? $(id).innerText.split('\n').map(s => s.trim()).filter(Boolean) : []);
       L.push(['Heat handover', 'h']); L.push([new Date().toLocaleString([], { hour: '2-digit', minute: '2-digit', day: 'numeric', month: 'short' }), 's']);
-      g('uxTri').slice(1).filter(x => !/^Why\?/.test(x)).forEach(s => L.push([s, /^(Do now|Next|Watch)$/.test(s) ? 'k' : 't'])); L.push(['', 's']);
+      g('uxTri').slice(1).filter(x => !/^Why |^Why\?|^Open the full reasoning/.test(x)).forEach(s => L.push([s, /^(Do now|Next|Watch)$/.test(s) ? 'k' : 't'])); L.push(['', 's']);
       g('uxBased').slice(0, 6).forEach(s => L.push([s, 't']));
       document.querySelectorAll('#uxProf .pf-r').forEach(r => { const t = r.innerText.replace(/\n/g, ': '); if (/FeMn|FeSi|Energy/.test(t)) L.push([t, 't']); });
       L.push(['', 's']); L.push(['Advisory only. Check against the plant procedures.', 's']);
@@ -2757,8 +2762,16 @@ const MLRef = (function () {
       const cx = cv.getContext('2d'); cx.fillStyle = '#fff'; cx.fillRect(0, 0, cv.width, cv.height); rows.forEach(([l, k, y]) => { cx.fillStyle = k === 'k' ? '#a85a00' : k === 's' ? '#555' : '#111'; cx.font = (k === 'h' ? 'bold 52px' : k === 'k' ? 'bold 34px' : k === 's' ? '26px' : '32px') + ' sans-serif'; cx.fillText(l, 40, y + 30); });
       window.__mlLastImage = cv.toDataURL('image/png'); window.__mlLastLines = rows.map(r => r[0]);
       const blob = await new Promise(r => cv.toBlob(r, 'image/png')); const f = new File([blob], 'handover.png', { type: 'image/png' });
-      try { if (navigator.canShare && navigator.canShare({ files: [f] })) { await navigator.share({ files: [f], title: 'Heat handover' }); return; } } catch (e) {}
-      const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'handover.png'; document.body.appendChild(a); a.click(); a.remove();
+      const old = document.getElementById('uxImgPrev'); if (old) old.remove();
+      const o = document.createElement('div'); o.id = 'uxImgPrev'; o.className = 'ux-sheet'; o.setAttribute('role', 'dialog'); o.setAttribute('aria-modal', 'true'); o.setAttribute('aria-label', 'Handover image preview');
+      const url = URL.createObjectURL(blob); const can = !!(navigator.canShare && navigator.canShare({ files: [f] }));
+      o.innerHTML = '<div class="sh-b ip-b"><div class="sh-t">Handover image ready</div><div class="sh-m" id="ipMsg">Check it, then share it or save it to your phone. Nothing is sent until you choose.</div><div class="ip-w"><img alt="Handover image preview" src="' + url + '"></div><div class="sh-a"></div></div>';
+      const act = o.querySelector('.sh-a'); const mk = (t, cls, fn) => { const k = document.createElement('button'); k.type = 'button'; k.className = 'btn' + cls; k.textContent = t; k.onclick = fn; act.appendChild(k); return k; };
+      const msg = t => { o.querySelector('#ipMsg').textContent = t; };
+      if (can) mk('Share', '', async () => { try { await navigator.share({ files: [f], title: 'Heat handover' }); msg('Shared.'); } catch (e) { msg('Share was cancelled. Nothing was sent.'); } });
+      mk('Save image', can ? ' ghost' : '', () => { const a = document.createElement('a'); a.href = url; a.download = 'handover.png'; document.body.appendChild(a); a.click(); a.remove(); msg('Saved image: handover.png. Look in your Downloads or Gallery.'); window.__mlImgSaved = true; });
+      mk('Close', ' ghost', () => { o.remove(); URL.revokeObjectURL(url); });
+      document.body.appendChild(o); window.__mlSheetLast = { title: 'Handover image ready', msg: 'preview' };
     };
   }
 })();
@@ -2773,7 +2786,7 @@ const MLRef = (function () {
   const fix = () => { document.querySelectorAll('input,select,textarea').forEach(e => { if (e.type === 'hidden' || e.type === 'file' || e.getAttribute('aria-label') || e.getAttribute('aria-labelledby')) return; if (e.labels && e.labels.length) { const t = e.labels[0].textContent.replace(/\s+/g, ' ').trim(); if (t) { e.setAttribute('aria-label', t.slice(0, 80)); return; } } if (e.id === 'agE') e.setAttribute('aria-label', 'Email address'); else if (e.id === 'agP') e.setAttribute('aria-label', 'Password'); else e.setAttribute('aria-label', nameOf(e)); }); };
   setInterval(fix, 2500); fix();
 })();
-(function () { const put = v => { const g = document.getElementById('authgate'), c = g && g.querySelector('.ag-card'); if (!c) return; if (!c.querySelector('#agVer')) { const d = document.createElement('div'); d.id = 'agVer'; d.textContent = 'MeltLab v' + v; d.style.cssText = 'text-align:center;font-size:13px;opacity:.8;padding:10px'; c.appendChild(d); } if (!c.querySelector('#agDemo')) { const a = document.createElement('a'); a.id = 'agDemo'; a.href = '?demo=1'; a.textContent = 'Try demo (no sign-in, made-up numbers)'; a.style.cssText = 'display:block;text-align:center;font-size:16px;font-weight:700;padding:12px;color:#FFB454;text-decoration:underline'; c.appendChild(a); } }; const BV = '3.46'; put(BV); setInterval(() => { put(BV); const f = document.querySelector('footer'); if (f && !f.dataset.v) { f.dataset.v = 1; f.textContent = 'MeltLab v' + BV + '. ' + f.textContent.replace(/^MeltLab v3\.\s*/, ''); } }, 800); })();
+(function () { const put = v => { const g = document.getElementById('authgate'), c = g && g.querySelector('.ag-card'); if (!c) return; if (!c.querySelector('#agVer')) { const d = document.createElement('div'); d.id = 'agVer'; d.textContent = 'MeltLab v' + v; d.style.cssText = 'text-align:center;font-size:13px;opacity:.8;padding:10px'; c.appendChild(d); } if (!c.querySelector('#agDemo')) { const a = document.createElement('a'); a.id = 'agDemo'; a.href = '?demo=1'; a.textContent = 'Try demo (no sign-in, made-up numbers)'; a.style.cssText = 'display:block;text-align:center;font-size:16px;font-weight:700;padding:12px;color:#FFB454;text-decoration:underline'; c.appendChild(a); } }; const BV = '3.47'; put(BV); setInterval(() => { put(BV); const f = document.querySelector('footer'); if (f && !f.dataset.v) { f.dataset.v = 1; f.textContent = 'MeltLab v' + BV + '. ' + f.textContent.replace(/^MeltLab v3\.\s*/, ''); } }, 800); })();
 
 // v3.46: delta vs last logged heat
 (function () {
@@ -2803,7 +2816,7 @@ const MLRef = (function () {
 
 /* ---- Self-update: check on open, focus, return, reconnect and every 5 minutes; reload at a safe moment ---- */
 (function () {
-  const VER = '3.46';
+  const VER = '3.47';
   try {
     const seen = localStorage.getItem('meltlab_ver_seen');
     if (seen && seen !== VER) {
