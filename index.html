@@ -312,7 +312,6 @@ html.night{filter:sepia(1) saturate(4) hue-rotate(-35deg) brightness(.7)}#uxPref
 .ux-chk .chk{display:flex;align-items:center;gap:8px}.ux-chk .chk>span{flex:1;display:flex;align-items:center}.ux-chk .chk .btn{flex:0 0 48px!important;min-width:48px;width:48px;padding:0}.ux-chk .chk input[type=checkbox]{flex:0 0 24px;margin:0 10px 0 0}
 html.glare{filter:contrast(1.3) brightness(1.3)}html.glare.night{filter:sepia(1) saturate(4) hue-rotate(-35deg) contrast(1.3) brightness(.9)}
 .ux-based.stale .ck-h::before,.smp-n.over::before{content:"\25B2  "}.ux-xchk .ck-h::before{content:"\25B2  "}.ux-pz.on .ck-h::before{content:"\25A0  "}
-@media print{body.printing>*:not(#appRoot):not(main){display:none!important}body.printing .nav,body.printing nav,body.printing .btn,body.printing .ux-sync,body.printing .ux-undo{display:none!important}body.printing{background:#fff!important;color:#000!important}body.printing .card{background:#fff!important;color:#000!important;border:1px solid #888!important;box-shadow:none!important;break-inside:avoid}body.printing .screen{display:none!important}body.printing #s_advice{display:block!important}html{filter:none!important}}
 
 .screen{padding-bottom:270px!important}html{scroll-padding-bottom:220px}
 .ux-based .stl{background:rgba(255,107,107,.14);border-radius:10px}.ux-based.stale .ck-sub{color:#ffb0b0}
@@ -324,6 +323,24 @@ body.paused #uxSmp::after{content:"Frozen while paused";display:block;color:#FFB
 .ux-chk .chk input[type=checkbox]{width:28px;height:28px;border-radius:8px;flex:0 0 28px;border:2px solid #aaa;background:transparent}.ux-chk .chk input[type=checkbox]:checked{background:#2e9d57;border-color:#2e9d57}.ux-chk .chk input[type=checkbox]:checked::after{content:"\2713";color:#fff;position:absolute;left:5px;top:-1px;font-size:20px}
 #s_settings .card{margin-bottom:12px}.ux-chk .chk .btn{flex:0 0 auto!important;width:auto!important;min-width:84px;padding:0 12px}
 html.night{filter:sepia(1) saturate(3) hue-rotate(-35deg) brightness(.9) contrast(1.15)}
+.tri-r{display:flex;gap:12px;padding:8px 0;border-top:1px solid rgba(255,255,255,.08);font-size:16px}.tri-r b{flex:0 0 74px;color:var(--muted,#A8ADB5);font-weight:700}.tri-r.now b{color:#FFB454}.tri-r.wch span{color:#ffd9a0}.ux-tri #triWhy{margin-top:8px;width:100%}
+.ux-chgbar{display:flex;align-items:center;gap:10px;padding:10px 14px;margin:8px 0;border-radius:16px;background:rgba(255,180,84,.15);border:1px solid #FFB454;font-size:14px}.ux-chgbar>span{flex:1 1 auto;min-width:0}.ux-chgbar .btn{flex:0 0 auto;width:auto;min-width:84px}
+.pf-r.chg{background:rgba(255,180,84,.18);border-radius:8px;padding-left:6px;padding-right:6px}.pf-r.chg b::before{content:"\25CF  ";color:#FFB454}.pf-r.dimr{opacity:.45}
+.ux-kp{position:fixed;inset:0;z-index:80;background:rgba(0,0,0,.7);display:flex;align-items:flex-end}.kp-b{width:100%;background:#1c2027;border-radius:24px 24px 0 0;padding:16px 16px 28px}.kp-t{color:#aab;font-size:15px}.kp-d{font-size:44px;font-weight:800;min-height:60px;margin:6px 0 10px}.kp-g{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.kp-g button{min-height:64px;font-size:26px;font-weight:700;border-radius:16px;border:1px solid rgba(255,255,255,.15);background:#2b2f36;color:#fff}.kp-a{display:flex;gap:10px;margin-top:12px}.kp-a .btn{flex:1;min-height:56px}
+
+/* v3.42b */
+.smp-n.paused{color:#FFB454}.smp-n.paused::before,.smp-n.paused:not(.over)::before{content:"\23F8  "}
+.pf-bad{color:#ff9a8a!important;font-weight:700}
+#uxPrefs .field,#uxPrefs .ck-row{margin:10px 0}#uxPrefs>*+*{margin-top:10px}
+input::placeholder,textarea::placeholder{color:#c3c9cd!important;opacity:1}
+html:not(.night) input::placeholder{color:#5b6670!important}
+.pf-r,.pf-r span,.pf-r b,.pf-w,.ck-sub,.ck-basis,#s_advice .ux-next *,#limits *{font-size:max(13px,1em)}
+#uxRep{position:fixed;left:12px;right:12px;bottom:calc(var(--toast-h,0px) + 100px);z-index:60;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 14px;border-radius:14px;background:#1b2128;color:#fff;border:1px solid #FFB454}
+.ux-pz.on.old .ck-h::before{content:"\25B2  "!important}.ux-pz.on.older .ck-h::before{content:"\2716  "!important}.ux-pz.on:not(.old):not(.older) .ck-h::before{content:"\23F8  "!important}
+@media print{body.printing>*:not(.page){display:none!important}body.printing .page{display:block!important;padding:0!important}body.printing .page>*:not(#s_advice){display:none!important}body.printing #s_advice{display:block!important;padding:0!important}body.printing button,body.printing .btn,body.printing nav,body.printing .ux-pz,body.printing #uxAdvTools,body.printing #uxRep,body.printing .ux-undo,body.printing #triWhy,body.printing details:not([open])>*:not(summary){display:none!important}body.printing .card{margin:6px 0!important;padding:8px 10px!important;font-size:12px!important}body.printing *{color:#000!important;background:transparent!important;text-shadow:none!important}body.printing .card{background:#fff!important}@page{margin:10mm}}
+
+.ux-step button[style*="flex"]{flex:0 1 92px!important;min-width:0!important;padding-left:8px!important;padding-right:8px!important}.ux-step{min-width:0;max-width:100%}
+@media print{body.printing .pr-hide{display:none!important}}
 </style>
 </head>
 <body>
@@ -2478,6 +2495,7 @@ const MLRef = (function () {
       last[el.id] = { v, at: now };
     });
   });
+  window.__mlGuard = (el, v) => { const p = parseFloat(String(el.value || '').replace(',', '.')); let msg = ''; if (!isNaN(p) && p > 0 && v > 0 && (v / p >= 5 || p / v >= 5)) msg = 'That is about ' + (v > p ? Math.round(v / p) : '1/' + Math.round(p / v)) + ' times the current value (' + p + '). Keep ' + v + '?'; else if (!isNaN(p) && Math.abs(v - p) > JUMP[el.id]) msg = 'This is a big change from ' + p + '. Keep ' + v + '?'; return !msg || confirm(msg); };
   // reopen recovery
   const SK = 'meltlab_seen'; let seen = 0; try { seen = +localStorage.getItem(SK) || 0; } catch (e) {}
   const c = window.__mlClock && window.__mlClock.get(); const away = Date.now() - seen;
@@ -2533,13 +2551,13 @@ const MLRef = (function () {
   if (st) {
     const sc = document.createElement('div'); sc.className = 'card'; sc.id = 'uxPrefs';
     const PZ = window.__mlPz || { a: 5, b: 15 };
-    sc.innerHTML = '<h3 style="margin:0 0 6px">Display and timing</h3><p class="sub" style="margin:0 0 10px">The minute limits are generic starting values, not plant figures. Set your own.</p><label class="ck-row"><span>Night mode (red, low glare)</span><input type="checkbox" id="pfNight"></label><label class="field">Readings out of date after (min)<input id="pfStale" type="number" inputmode="decimal" min="1" step="1"></label><label class="field">Pause turns amber after (min)<input id="pfA" type="number" inputmode="decimal" min="1" step="1"></label><label class="field">Pause turns red after (min)<input id="pfB" type="number" inputmode="decimal" min="1" step="1"></label>';
+    sc.innerHTML = '<h3 style="margin:0 0 6px">Display and timing</h3><p class="sub" style="margin:0 0 10px">The minute limits are generic starting values, not plant figures. Set your own.</p><label class="ck-row"><span>Night mode (red, low glare)</span><input type="checkbox" id="pfNight"></label><label class="ck-row"><span>Enter key moves to the next field</span><input type="checkbox" id="pfAdv"></label><label class="field">Readings out of date after (min)<input id="pfStale" type="number" inputmode="decimal" min="1" step="1"></label><label class="field">Pause turns amber after (min)<input id="pfA" type="number" inputmode="decimal" min="1" step="1"></label><label class="field">Pause turns red after (min)<input id="pfB" type="number" inputmode="decimal" min="1" step="1"></label>';
     const anchor = $('uxBags') || $('uxXset') || st.querySelector('header') || st.firstElementChild; anchor.insertAdjacentElement('afterend', sc);
-    const nm = sc.querySelector('#pfNight'); nm.checked = localStorage.getItem('meltlab_night') === '1'; const ap = () => document.documentElement.classList.toggle('night', nm.checked); ap();
+    const ad = sc.querySelector('#pfAdv'); ad.checked = localStorage.getItem('meltlab_adv') !== '0'; ad.onchange = () => { try { localStorage.setItem('meltlab_adv', ad.checked ? '1' : '0'); } catch (e) {} }; const nm = sc.querySelector('#pfNight'); nm.checked = localStorage.getItem('meltlab_night') === '1'; const ap = () => document.documentElement.classList.toggle('night', nm.checked); ap();
     nm.onchange = () => { try { localStorage.setItem('meltlab_night', nm.checked ? '1' : '0'); } catch (e) {} ap(); };
     const a = sc.querySelector('#pfStale'), b1 = sc.querySelector('#pfA'), b2 = sc.querySelector('#pfB'); a.value = BS.stale; b1.value = PZ.a; b2.value = PZ.b;
-    const msgEl = document.createElement('div'); msgEl.className = 'ck-sub'; msgEl.id = 'pfMsg'; sc.appendChild(msgEl);
-    const save = () => { const x = parseFloat(a.value), y = parseFloat(b1.value), z = parseFloat(b2.value); if (!(x > 0)) { msgEl.textContent = '\u25B2 Out of date limit must be above 0.'; return; } if (!(y > 0) || !(z > 0) || !(y < z)) { msgEl.textContent = '\u25B2 Amber must be above 0 and lower than red.'; return; } msgEl.textContent = '\u2713 Saved.'; if (x > 0) BS.stale = x; if (y > 0) PZ.a = y; if (z > 0) PZ.b = z; try { localStorage.setItem(SK, JSON.stringify(BS)); localStorage.setItem('meltlab_pzset', JSON.stringify({ a: PZ.a, b: PZ.b })); } catch (e) {} draw(); };
+    const msgEl = document.createElement('div'); msgEl.className = 'ck-sub'; msgEl.id = 'pfMsg'; b1.closest('label').insertAdjacentElement('afterend', msgEl);
+    const save = () => { const x = parseFloat(a.value), y = parseFloat(b1.value), z = parseFloat(b2.value); if (!(x > 0)) { msgEl.textContent = '\u25B2 Out of date limit must be above 0. Showing the last valid value.'; msgEl.className = 'ck-sub pf-bad'; a.value = BS.stale; return; } if (!(y > 0) || !(z > 0) || !(y < z)) { msgEl.textContent = '\u25B2 Amber must be above 0 and lower than red. Not saved. Showing the last valid values.'; msgEl.className = 'ck-sub pf-bad'; b1.value = PZ.a; b2.value = PZ.b; return; } msgEl.textContent = '\u2713 Saved.'; msgEl.className = 'ck-sub'; if (x > 0) BS.stale = x; if (y > 0) PZ.a = y; if (z > 0) PZ.b = z; try { localStorage.setItem(SK, JSON.stringify(BS)); localStorage.setItem('meltlab_pzset', JSON.stringify({ a: PZ.a, b: PZ.b })); } catch (e) {} draw(); };
     [a, b1, b2].forEach(e => e.addEventListener('change', save));
   }
   window.__mlBased = { stamp, get: () => R };
@@ -2560,25 +2578,30 @@ const MLRef = (function () {
   }
   // paste lab result
   const map = { C: 'f_curC', Mn: 'f_curMn', Si: 'f_curSi', P: 'f_p', S: 'f_s' };
-  function parseLab(t) { const o = {}; Object.keys(map).forEach(k => { const m = new RegExp('(?:^|[^A-Za-z])' + k + '\\s*[:=]?\\s*([0-9]+[.,]?[0-9]*)(?![0-9]*[A-Za-z])', 'i').exec(t); if (m) { const v = parseFloat(m[1].replace(',', '.')); if (!isNaN(v)) o[k] = v; } }); return o; }
+  function parseLab2(t) { const vals = {}, errs = []; Object.keys(map).forEach(k => { const re = new RegExp('(?:^|[^A-Za-z])' + k + '\\s*[:=]?\\s*([0-9]+(?:[.,][0-9]+)?)\\s*(%|pct\\b|percent\\b)?', 'gi'); let m, seen = []; while ((m = re.exec(t))) { const v = parseFloat(m[1].replace(',', '.')); if (isNaN(v)) continue; if (!m[2]) { errs.push(k + ' ' + m[1] + ' has no unit. Add % (for example ' + k + ' ' + m[1] + ' %).'); continue; } seen.push(v); } if (seen.length > 1 && seen.some(x => x !== seen[0])) errs.push(k + ' appears with different numbers (' + seen.join(' and ') + ').'); else if (seen.length) vals[k] = seen[0]; }); return { vals, errs }; }
+  function parseLab(t) { const r = parseLab2(t); return r.errs.length ? {} : r.vals; }
+  window.__mlParseLab2 = parseLab2;
   window.__mlParseLab = parseLab;
   if (heat) {
     const cg = $('chemGrid') || $('heatGrid'); const b = document.createElement('div'); b.className = 'ux-step'; b.innerHTML = '<button type="button" class="btn ghost sm" id="labPaste">Paste lab result</button>';
     if (cg) cg.insertAdjacentElement('beforebegin', b);
-    $('labPaste').onclick = async () => { let t = ''; try { t = await navigator.clipboard.readText(); } catch (e) {} if (!t) t = prompt('Paste the lab result text (for example: C 0.18 Mn 0.45 Si 0.12 P 0.015 S 0.02)') || ''; const o = parseLab(t); const keys = Object.keys(o); if (!keys.length) { alert('No values found. Expected something like: C 0.18 Mn 0.45 Si 0.12 P 0.015 S 0.02'); return; } if (!confirm('Fill these values?\n' + keys.map(k => k + ' ' + o[k]).join('\n'))) return; keys.forEach(k => { const e = $(map[k]); if (e) { e.value = o[k]; fire(e); } }); if (window.__mlBased) window.__mlBased.stamp(); };
+    $('labPaste').onclick = async () => { let t = ''; try { t = await navigator.clipboard.readText(); } catch (e) {} if (!t) t = prompt('Paste the lab result text with units (for example: C 0.18 % Mn 0.45 % Si 0.12 % P 0.015 % S 0.02 %)') || ''; const r = parseLab2(t); const o = r.vals, keys = Object.keys(o); if (r.errs.length) { alert('Nothing was filled. This text is ambiguous:\n' + r.errs.join('\n')); return; } if (!keys.length) { alert('No values found. Expected something like: C 0.18 % Mn 0.45 % Si 0.12 % P 0.015 % S 0.02 %'); return; } if (!confirm('Fill these values?\n' + keys.map(k => k + ' ' + o[k] + ' %').join('\n'))) return; keys.forEach(k => { const e = $(map[k]); if (e) { e.value = o[k]; fire(e); } }); if (window.__mlBased) window.__mlBased.stamp(); };
   }
   // read advice aloud, print sheet
   if (adv) {
     const bar = document.createElement('div'); bar.className = 'ux-step'; bar.id = 'uxAdvTools'; bar.innerHTML = '<button type="button" class="btn ghost sm" id="advSay">Read aloud</button><button type="button" class="btn ghost sm" id="advPrint">Print heat sheet</button>';
     const anchor = $('uxChk') || $('uxBased'); (anchor || adv.firstElementChild).insertAdjacentElement('afterend', bar);
-    $('advSay').onclick = () => { try { const ss = window.speechSynthesis; if (!ss) { alert('This browser cannot read aloud.'); return; } if (ss.speaking) { ss.cancel(); return; } const n = adv.querySelector('.ux-next'); const t = ((n && n.innerText) || adv.innerText.slice(0, 400)).replace(/\s+/g, ' '); ss.speak(new SpeechSynthesisUtterance(t)); } catch (e) {} };
-    $('advPrint').onclick = () => { document.body.classList.add('printing'); setTimeout(() => { try { window.print(); } catch (e) {} setTimeout(() => document.body.classList.remove('printing'), 500); }, 100); };
+    const say = $('advSay'); const spk = t => t.replace(/(\d{1,3}(?:,\d{3})+|\d+(?:\.\d+)?)\s*(?:\u00B0\s*)?C\b(?!\w)/g, (m, n) => { const v = parseFloat(n.replace(/,/g, '')); return v.toLocaleString('en-US') + ' degrees Celsius'; }).replace(/(\d)\s*%/g, '$1 percent').replace(/(\d)\s*MW\b/g, '$1 megawatts').replace(/(\d)\s*t\/h\b/g, '$1 tonnes per hour').replace(/(\d)\s*kWh\/t\b/g, '$1 kilowatt hours per tonne').replace(/(\d)\s*kg\b/g, '$1 kilograms').replace(/(\d)\s*min\b/g, '$1 minutes').replace(/\+(\d)/g, 'plus $1');
+    window.__mlSpeakText = spk;
+    say.onclick = () => { try { const ss = window.speechSynthesis; if (!ss) { alert('This browser cannot read aloud.'); return; } if (ss.speaking || say.dataset.on === '1') { ss.cancel(); say.dataset.on = '0'; say.textContent = 'Read aloud'; return; } const n = adv.querySelector('.ux-next'); const t = spk(((n && n.innerText) || adv.innerText.slice(0, 400)).replace(/\s+/g, ' ')); window.__mlLastSpoken = t; const u = new SpeechSynthesisUtterance(t); u.onend = u.onerror = () => { say.dataset.on = '0'; say.textContent = 'Read aloud'; }; say.dataset.on = '1'; say.textContent = 'Stop reading'; ss.speak(u); } catch (e) {} };
+    window.__mlPrintPrep = on => { const keep = new Set(['uxTri', 'uxBased']); const nx = adv.querySelector('.ux-next'); const nc = nx && nx.closest('.card'); [...adv.children].forEach(c => { c.classList.toggle('pr-hide', on && !(c.tagName === 'HEADER' || keep.has(c.id) || c === nc || (nc && c.contains(nx)))); }); document.body.classList.toggle('printing', on); };
+    $('advPrint').onclick = () => { window.__mlPrintPrep(true); setTimeout(() => { try { window.print(); } catch (e) {} setTimeout(() => window.__mlPrintPrep(false), 500); }, 100); };
   }
   // shortcuts: double-tap repeats the last value, Enter moves to the next field
   const T = $('f_temp'), C = $('f_curC');
   [T, C].forEach(el => { if (!el) return; el.addEventListener('dblclick', () => { const R = window.__mlBased && window.__mlBased.get(); const r = R && (el === T ? R.t : R.c); if (r && String(el.value).trim() === '') { el.value = r.v; fire(el); } }); });
-  if (C) C.addEventListener('keydown', e => { if (e.key === 'Enter' && T) { e.preventDefault(); T.focus(); T.select && T.select(); } });
-  if (T) T.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); T.blur(); const g = document.querySelector('#s_heat .btn[data-go=advice]'); g && g.focus(); } });
+  if (C) C.addEventListener('keydown', e => { if (e.key === 'Enter' && T) { if (localStorage.getItem('meltlab_adv') === '0') return; e.preventDefault(); if (!(parseFloat(String(C.value).replace(',', '.')) > 0)) { C.setCustomValidity('Enter a carbon value first'); C.reportValidity && C.reportValidity(); C.setCustomValidity(''); return; } T.focus(); T.select && T.select(); } });
+  if (T) T.addEventListener('keydown', e => { if (e.key === 'Enter') { if (localStorage.getItem('meltlab_adv') === '0') return; e.preventDefault(); if (!(parseFloat(String(T.value).replace(',', '.')) > 0)) { T.setCustomValidity('Enter a temperature first'); T.reportValidity && T.reportValidity(); T.setCustomValidity(''); return; } T.blur(); const g = document.querySelector('#s_heat .btn[data-go=advice]'); g && g.focus(); } });
   // glare mode
   if (st) { const pf = $('uxPrefs'); if (pf) { const l = document.createElement('label'); l.className = 'ck-row'; l.innerHTML = '<span>Glare mode (bright, high contrast)</span><input type="checkbox" id="pfGlare">'; pf.querySelector('p').insertAdjacentElement('afterend', l); const g = l.querySelector('input'); g.checked = localStorage.getItem('meltlab_glare') === '1'; const ap = () => document.documentElement.classList.toggle('glare', g.checked); ap(); g.onchange = () => { try { localStorage.setItem('meltlab_glare', g.checked ? '1' : '0'); } catch (e) {} ap(); }; } }
 })();
@@ -2589,9 +2612,92 @@ const MLRef = (function () {
   setInterval(() => { try { const tc = $('uxTap'); if (tc) tc.style.display = tc.innerText.trim() === '' ? 'none' : ''; } catch (e) {} try { const m = model(); if (m && !(m.o2Total > 0)) { $('heroO2').textContent = '--'; $('heroSub').textContent = 'Oxygen not entered. Set it in Heat (Nm\u00b3 plan).'; } } catch (e) {} }, 1500);
 })();
 
+// v3.42: now/next/watch, what changed, keypad, audit trail, handover image, settings group
+(function () {
+  const $ = id => document.getElementById(id), adv = $('s_advice'), st = $('s_settings'); if (!adv) return;
+  const nav = n => { const b = document.querySelectorAll('nav button, .nav button, .pillnav button')[n]; if (b) b.click(); };
+  const esc = t => String(t).replace(/[<>&]/g, '');
+  // ---- do now / next / watch
+  const tri = document.createElement('div'); tri.className = 'card ux-tri'; tri.id = 'uxTri';
+  const hd = adv.querySelector('header'); (hd || adv.firstElementChild).insertAdjacentElement('afterend', tri);
+  function triDraw() {
+    if (adv.offsetParent === null) return;
+    const nx = adv.querySelector('.ux-next'); const lines = nx ? nx.innerText.split('\n').map(s => s.trim()).filter(Boolean).slice(1, 3) : [];
+    const here = document.querySelector('#uxProf .pf.here'), nxt = here && here.nextElementSibling && here.nextElementSibling.classList.contains('pf') ? here.nextElementSibling : null;
+    const watch = [];
+    const bs = $('uxBased'); if (bs && bs.style.display !== 'none' && bs.classList.contains('stale')) { const m = (bs.querySelector('.ck-sub') || {}).innerText || ''; watch.push(m.replace(/^OUT OF DATE\.\s*/, '').split('. Take')[0]); }
+    const xc = $('uxXchk'); if (xc && xc.style.display !== 'none') watch.push('Temperature and carbon disagree');
+    const lm = $('limits'); if (lm && !lm.classList.contains('okb')) watch.push((lm.innerText.split('\n')[1] || 'A limit is exceeded').trim());
+    if (window.__mlPaused) watch.push('Timers are paused');
+    const row = (k, cls, body) => '<div class="tri-r ' + cls + '"><b>' + k + '</b><span>' + body + '</span></div>';
+    const html = '<div class="ck-h">Right now</div>' + row('Do now', 'now', lines.length ? esc(lines.join(' ')) : 'Enter the heat to get advice') + row('Next', 'nxt', nxt ? esc((nxt.querySelector('.pf-t') || {}).textContent || '') + ', ' + esc((nxt.querySelector('.pf-w') || {}).textContent || '').split(' to ')[0] : 'Nothing after this phase') + row('Watch', 'wch', watch.length ? '\u25B2 ' + watch.map(esc).join('. ') : '\u2713 Nothing to watch') + '<button type="button" class="btn ghost sm" id="triWhy">Why? Open the reasoning</button>';
+    if (tri.dataset.h !== html) { tri.dataset.h = html; tri.innerHTML = html; }
+    tri.querySelector('#triWhy').onclick = () => nav(3);
+  }
+  setInterval(triDraw, 2000); triDraw();
+  // ---- what changed
+  let prev = null, chg = new Set(); const norm = t => String(t).replace(/\(\+\d+ min\)|from \+\d+ min|\+\d+ min/g, '').replace(/\s+/g, ' ').trim();
+  function snapMap() { const m = {}; document.querySelectorAll('#uxProf .pf').forEach(p => { const t = (p.querySelector('.pf-t') || {}).textContent || ''; p.querySelectorAll('.pf-r').forEach(r => { m[t + '|' + (r.querySelector('span') || {}).textContent] = norm((r.querySelector('b') || {}).textContent); }); }); return m; }
+  function apply() { document.querySelectorAll('#uxProf .pf').forEach(p => { const t = (p.querySelector('.pf-t') || {}).textContent || ''; p.querySelectorAll('.pf-r').forEach(r => { const k = t + '|' + (r.querySelector('span') || {}).textContent; const a1 = chg.has(k), a2 = chg.size > 0 && !chg.has(k); if (r.classList.contains('chg') !== a1) r.classList.toggle('chg', a1); if (r.classList.contains('dimr') !== a2) r.classList.toggle('dimr', a2); }); }); let bar = $('uxChg'); if (chg.size && !bar) { bar = document.createElement('div'); bar.id = 'uxChg'; bar.className = 'ux-chgbar'; tri.insertAdjacentElement('afterend', bar); } if (bar) { if (!chg.size) bar.remove(); else { const bh = '<span>' + chg.size + ' value' + (chg.size > 1 ? 's' : '') + ' changed since your last input. Highlighted in the heat timeline.</span><button type="button" class="btn ghost sm" id="chgClr">Clear</button>'; if (bar.dataset.h !== bh) { bar.dataset.h = bh; bar.innerHTML = bh; } bar.querySelector('#chgClr').onclick = () => { chg = new Set(); apply(); }; } } }
+  let lastEdit = 0, pzAt = 0, pzPrev = !!window.__mlPaused; setInterval(() => { if (!!window.__mlPaused !== pzPrev) { pzPrev = !!window.__mlPaused; pzAt = Date.now(); } }, 200); ['input', 'change'].forEach(n => document.addEventListener(n, e => { if (e.target && /^f_|^smp|^ck/.test(e.target.id || '')) lastEdit = Date.now(); }, true)); document.addEventListener('click', e => { if (e.target.closest && e.target.closest('#s_heat button, .ux-step button, .kp-b button')) lastEdit = Date.now(); }, true);
+  const prof = $('uxProf'); if (prof) new MutationObserver(() => { const now = snapMap(); if (prev && Date.now() - lastEdit < 1500 && Date.now() - pzAt > 3000) { const d = new Set(); Object.keys(now).forEach(k => { if (prev[k] !== undefined && prev[k] !== now[k]) d.add(k); }); if (d.size) chg = d; } prev = now; apply(); }).observe(prof, { childList: true, subtree: true });
+  // ---- keypad
+  const T = $('f_temp'), C = $('f_curC');
+  function keypad(el, label) {
+    const m = document.createElement('div'); m.className = 'ux-kp'; m.innerHTML = '<div class="kp-b"><div class="kp-t">' + label + '</div><div class="kp-d" id="kpD">' + esc(el.value) + '</div><div class="kp-g">' + ['7', '8', '9', '4', '5', '6', '1', '2', '3', '.', '0', '<'].map(k => '<button type="button" data-k="' + k + '">' + (k === '<' ? 'Del' : k) + '</button>').join('') + '</div><div class="kp-a"><button type="button" class="btn ghost" id="kpX">Cancel</button><button type="button" class="btn" id="kpOk">OK</button></div></div>';
+    document.body.appendChild(m); let v = ''; const d = m.querySelector('#kpD'); const show = () => d.textContent = v || '--';
+    m.querySelector('.kp-g').onclick = e => { const b = e.target.closest('button'); if (!b) return; const k = b.dataset.k; if (k === '<') v = v.slice(0, -1); else if (k === '.' && v.includes('.')) return; else if (v.length < 7) v += k; show(); }; show();
+    m.querySelector('#kpX').onclick = () => m.remove();
+    m.querySelector('#kpOk').onclick = () => { if (v !== '' && !isNaN(parseFloat(v)) && (!window.__mlGuard || window.__mlGuard(el, parseFloat(v)))) { el.value = v; el.dispatchEvent(new Event('input', { bubbles: true })); el.dispatchEvent(new Event('change', { bubbles: true })); if (window.__mlXchk) window.__mlXchk.snap(); if (window.__mlBased) window.__mlBased.stamp(); } m.remove(); };
+  }
+  window.__mlKeypad = keypad;
+  [[T, 'Temperature (C)'], [C, 'Carbon (%)']].forEach(([el, lb]) => { if (!el) return; const row = (el.closest('.field') || el.parentElement).nextElementSibling; if (!row || !row.classList.contains('ux-step')) return; const sp = row.querySelector('span'); const b = document.createElement('button'); b.type = 'button'; b.className = 'btn ghost sm'; b.textContent = 'Keypad'; b.style.flex = '0 0 auto'; b.onclick = () => keypad(el, lb); sp.replaceWith(b); });
+  // ---- audit trail + settings group
+  if (st) {
+    const AK = 'meltlab_audit'; let A = []; try { A = JSON.parse(localStorage.getItem(AK) || '[]') || []; } catch (e) {}
+    st.addEventListener('change', e => { const i = e.target; if (!i || !i.closest || !i.closest('.card') || i.type === 'file') return; if (i.closest('#uxAudit')) return; const lab = (i.closest('label') && i.closest('label').innerText.split('\n')[0]) || i.id || 'setting'; A.unshift({ at: Date.now(), k: lab.slice(0, 60), v: i.type === 'checkbox' ? (i.checked ? 'on' : 'off') : String(i.value).slice(0, 30) }); A = A.slice(0, 50); try { localStorage.setItem(AK, JSON.stringify(A)); } catch (x) {} drawA(); }, true);
+    const au = document.createElement('details'); au.className = 'card ux-fold'; au.id = 'uxAudit'; st.appendChild(au);
+    function drawA() { au.innerHTML = '<summary>Audit trail (' + A.length + ' recent changes)</summary><div class="ux-body">' + (A.length ? A.map(r => '<div class="ck-row"><span>' + esc(r.k) + ' <span class="ck-basis">' + new Date(r.at).toLocaleString([], { hour: '2-digit', minute: '2-digit', day: 'numeric', month: 'short' }) + '</span></span><b>' + esc(r.v) + '</b></div>').join('') : '<div class="ck-sub">No settings changed yet.</div>') + '</div>'; }
+    drawA();
+    const grp = document.createElement('details'); grp.className = 'card ux-fold'; grp.id = 'uxGrp'; grp.open = true; grp.innerHTML = '<summary>Practice and display</summary><div class="ux-body"></div>'; const body = grp.querySelector('.ux-body');
+    const first = $('uxXset') || $('uxBags') || $('uxPrefs'); if (first) { first.insertAdjacentElement('beforebegin', grp); ['uxXset', 'uxBags', 'uxPrefs'].forEach(id => { const e = $(id); if (e) body.appendChild(e); }); }
+  }
+  // ---- handover image
+  const bar = $('uxAdvTools'); if (bar) {
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'btn ghost sm'; b.id = 'advImg'; b.textContent = 'Handover image'; bar.appendChild(b);
+    b.onclick = async () => {
+      const L = []; const g = id => ($(id) ? $(id).innerText.split('\n').map(s => s.trim()).filter(Boolean) : []);
+      L.push(['Heat handover', 'h']); L.push([new Date().toLocaleString([], { hour: '2-digit', minute: '2-digit', day: 'numeric', month: 'short' }), 's']);
+      g('uxTri').slice(1).forEach(s => L.push([s, /^(Do now|Next|Watch)$/.test(s) ? 'k' : 't'])); L.push(['', 's']);
+      g('uxBased').slice(0, 6).forEach(s => L.push([s, 't']));
+      document.querySelectorAll('#uxProf .pf-r').forEach(r => { const t = r.innerText.replace(/\n/g, ': '); if (/FeMn|FeSi|Energy/.test(t)) L.push([t, 't']); });
+      L.push(['', 's']); L.push(['Advisory only. Check against the plant procedures.', 's']);
+      const cv = document.createElement('canvas'); cv.width = 900; const wrap = (ctx, t, w) => { const ws = String(t).split(' '), out = []; let cur = ''; ws.forEach(x => { const n = cur ? cur + ' ' + x : x; if (ctx.measureText(n).width > w && cur) { out.push(cur); cur = x; } else cur = n; }); out.push(cur); return out; };
+      const c2 = cv.getContext('2d'); c2.font = '32px sans-serif'; let h = 60; const rows = []; L.forEach(([t, k]) => { c2.font = (k === 'h' ? 'bold 52px' : k === 'k' ? 'bold 34px' : k === 's' ? '26px' : '32px') + ' sans-serif'; wrap(c2, t, 820).forEach(l => { rows.push([l, k, h]); h += k === 'h' ? 70 : 46; }); }); cv.height = h + 40;
+      const cx = cv.getContext('2d'); cx.fillStyle = '#fff'; cx.fillRect(0, 0, cv.width, cv.height); rows.forEach(([l, k, y]) => { cx.fillStyle = k === 'k' ? '#a85a00' : k === 's' ? '#555' : '#111'; cx.font = (k === 'h' ? 'bold 52px' : k === 'k' ? 'bold 34px' : k === 's' ? '26px' : '32px') + ' sans-serif'; cx.fillText(l, 40, y + 30); });
+      window.__mlLastImage = cv.toDataURL('image/png');
+      const blob = await new Promise(r => cv.toBlob(r, 'image/png')); const f = new File([blob], 'handover.png', { type: 'image/png' });
+      try { if (navigator.canShare && navigator.canShare({ files: [f] })) { await navigator.share({ files: [f], title: 'Heat handover' }); return; } } catch (e) {}
+      const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'handover.png'; document.body.appendChild(a); a.click(); a.remove();
+    };
+  }
+})();
+
+// v3.42b: lab pause state, repeat undo, labels
+(function () {
+  const $ = id => document.getElementById(id);
+  setInterval(() => { const n = $('smpN'); if (!n) return; const p = !!window.__mlPaused; n.classList.toggle('paused', p); const c = n.textContent; if (p && c.indexOf('Frozen. ') !== 0) n.textContent = 'Frozen. ' + c; if (!p && c.indexOf('Frozen. ') === 0) n.textContent = c.slice(8); }, 400);
+  const fire = el => { el.dispatchEvent(new Event('input', { bubbles: true })); el.dispatchEvent(new Event('change', { bubbles: true })); };
+  ['f_temp', 'f_curC'].forEach(id => { const el = $(id); if (!el) return; el.addEventListener('pointerdown', () => { el.dataset.was = el.value; }, true); el.addEventListener('dblclick', () => { if (el.dataset.was !== '' || String(el.value).trim() === '') return; const old = $('uxRep'); if (old) old.remove(); const t = document.createElement('div'); t.id = 'uxRep'; t.className = 'ux-undo'; t.setAttribute('role', 'status'); const nm = id === 'f_temp' ? 'temperature' : 'carbon'; t.innerHTML = '<span>Repeated last ' + nm + ': ' + el.value + '</span><button type="button" class="btn sm">Undo</button>'; document.body.appendChild(t); t.querySelector('button').onclick = () => { el.value = ''; fire(el); t.remove(); }; setTimeout(() => t.remove(), 8000); }); });
+  const nameOf = e => { const l = e.closest('label'); let t = ''; if (l) t = l.innerText.split('\n')[0]; if (!t) { const p = e.closest('.field,.ck-row,.row,div'); const lab = p && p.querySelector('label,.lbl,span,b,h4'); t = lab && lab !== e ? lab.innerText.split('\n')[0] : ''; } if (!t) t = e.placeholder || e.title || e.name || e.id || e.type; return String(t).trim().slice(0, 60); };
+  const fix = () => { document.querySelectorAll('input,select,textarea').forEach(e => { if (e.type === 'hidden' || e.type === 'file' || e.getAttribute('aria-label') || e.getAttribute('aria-labelledby') || (e.labels && e.labels.length)) return; if (e.id === 'agE') e.setAttribute('aria-label', 'Email address'); else if (e.id === 'agP') e.setAttribute('aria-label', 'Password'); else e.setAttribute('aria-label', nameOf(e)); }); };
+  setInterval(fix, 2500); fix();
+})();
+(function () { const put = v => { const g = document.getElementById('authgate'); if (!g || document.getElementById('agVer')) return; const d = document.createElement('div'); d.id = 'agVer'; d.textContent = 'MeltLab v' + v; d.style.cssText = 'text-align:center;font-size:13px;opacity:.8;padding:10px'; g.appendChild(d); }; fetch('version.json', { cache: 'no-store' }).then(r => r.json()).then(j => { put(j.v); setTimeout(() => put(j.v), 1500); }).catch(() => {}); })();
+
 /* ---- Self-update: check on open, focus, return, reconnect and every 5 minutes; reload at a safe moment ---- */
 (function () {
-  const VER = '3.41';
+  const VER = '3.42';
   try {
     const seen = localStorage.getItem('meltlab_ver_seen');
     if (seen && seen !== VER) {
