@@ -432,6 +432,17 @@ html[data-theme=dark] .step .d{color:#DCE3DD}
 .pf.past{opacity:.85}
 .pf-done{font-size:12px;font-weight:800;letter-spacing:.08em;color:#3DDC84;margin:2px 0 4px}
 .rep-photo.rep-adv{background:var(--card,#232930);border:1px solid var(--line,#313840);border-radius:22px;padding:14px 16px}
+
+/* v3.56: cycle 8 - no inner panel shadows, flat formula fold, done rows full contrast */
+#uxDetails .ux-sub{box-shadow:none;padding-left:0;padding-right:0}
+#uxDetails .card,#uxDetails .ux-prof{box-shadow:none}
+details.fx{border-radius:0;padding:0;background:transparent;border:0;box-shadow:none}
+html[data-theme=dark] details.fx,html[data-theme=light] details.fx{background:transparent;border:0;box-shadow:none}
+.pf.past{opacity:1}
+.pf.past .pf-r span{color:var(--ink)}
+.tri-r{flex-wrap:wrap}
+.tri-r span{flex:1 1 140px;min-width:0;overflow-wrap:anywhere}
+.ux-tri .tri-wy{flex-wrap:wrap}
 </style>
 </head>
 <body>
@@ -832,14 +843,14 @@ function render() {
     document.getElementById('statusIn').innerHTML = ringSvg(m.progress)
         + '<div class="stats">'
         + '<div class="stat"><div class="l">Charged</div><div class="v">' + r0(m.charged) + ' / ' + r0(m.total) + ' t</div><div class="s">' + (Math.round(m.driRem) > 0 ? r0(m.driRem) + ' t DRI to go' : 'No DRI to add') + '</div></div>'
-        + '<div class="stat"><div class="l">Energy to tap</div><div class="v">' + r0(m.eRem) + ' kWh</div><div class="s">~' + mmss(m.minOn) + ' at ' + r0(m.power) + ' MW</div></div>'
+        + '<div class="stat"><div class="l">Energy to tap</div><div class="v">' + r0(m.eRem) + ' kWh</div><div class="s">~' + Math.round(m.minOn) + ' min at ' + r0(m.power) + ' MW</div></div>'
         + '<div class="stat"><div class="l">Carbon</div><div class="v">' + (m.c0 === null ? '-' : rc(m.c0) + ' %') + '</div><div class="s">target ' + rc(m.ct) + ' %</div></div>'
         + '<div class="stat"><div class="l">Tap aim</div><div class="v">' + r0(m.tAim) + ' C</div><div class="s">now ' + r0(m.tNow) + ' C</div></div>'
         + '</div>';
     const PR = profile(m);
     document.getElementById('profile').innerHTML = profileSvg(m, PR);
     document.getElementById('steps').innerHTML = stepsHtml(m, PR);
-    document.getElementById('profT').textContent = mmss(PR.tEnd) + ' to tap';
+    document.getElementById('profT').textContent = Math.round(PR.tEnd) + ' min to tap';
     document.getElementById('curve').innerHTML = curveSvg(m);
     document.getElementById('heroO2').textContent = r0(m.o2Rem);
     document.getElementById('heroSub').textContent = 'Nm\u00b3 still to blow';
@@ -872,7 +883,7 @@ function render() {
             'Feed (t/h) = min(power (kW) / melt energy (kWh/t), feeder max) = min(' + r0(m.power * 1000) + ' / ' + konst('eDri') + ', ' + r0(m.feedMax) + ') = ' + r0(m.feedOpt) + '. ' + r0(m.driRem) + ' t of DRI still to feed = ~' + r0(m.driRem / m.feedOpt * 60) + ' min at this rate.',
             verdict + ' Melt energy ' + konst('eDri') + ' kWh/t is a generic DRI value - calibrate it from your own heats.'));
     }
-    R.push(reco('Energy to tap', r0(m.eRem) + ' kWh to go - ~' + mmss(m.minOn) + ' power-on' + (m.finalKwhT !== null ? ' - final ~' + r0(m.finalKwhT) + ' kWh/t' : ''),
+    R.push(reco('Energy to tap', r0(m.eRem) + ' kWh to go - ~' + Math.round(m.minOn) + ' min power-on' + (m.finalKwhT !== null ? ' - final ~' + r0(m.finalKwhT) + ' kWh/t' : ''),
         'Melt remaining ' + r0(m.eMeltRem) + ' kWh (' + r0(m.driRem) + ' t DRI x ' + konst('eDri') + ' + ' + r0(m.scrapRem) + ' t scrap x ' + konst('eScrap') + ') + superheat ' + r0(m.eHeat) + ' kWh (' + r0(m.dT) + ' C x ' + r0(m.total) + ' t x ' + konst('cpLiquid') + ') - decarb credit ' + r0(m.credit) + ' kWh (' + r0(m.kgC) + ' kg C x ' + konst('creditKwhPerKgC') + '). Minutes = energy / power.',
         'The optimal heat runs full available power while the slag is foamed and the arc covered, then refines. ' + (m.power < numOr('pwrLimit', 60) ? 'You have headroom to the transformer limit (' + r0(numOr('pwrLimit', 60)) + ' MW) if the practice allows.' : 'You are at the transformer limit.') + (m.finalKwhT !== null ? ' Projected final intensity ' + r0(m.finalKwhT) + ' kWh/t - compare with your good heats.' : '')));
     R.push(Math.round(m.o2Rem) > 0 ? reco('Oxygen - blow ' + r0(m.o2Rem) + ' Nm3 more', m.jets + ' jet' + (m.jets > 1 ? 's' : '') + ' at ' + r0(m.perJet) + ' Nm3/h',
@@ -944,7 +955,7 @@ function handoverText(m) {
     L.push('MeltLab heat plan (decision support only, check against plant procedures)');
     L.push('Charge ' + r0(m.total) + ' t, charged ' + r0(m.charged) + ' t | C ' + (m.c0 === null ? '- now, aim ' + rcp(0, m.ct)[1] + ' %' : rcp(m.c0, m.ct)[0] + ' % now, aim ' + rcp(m.c0, m.ct)[1] + ' %') + ' | ' + r0(m.tNow) + ' C, tap aim ' + r0(m.tAim) + ' C');
     L.push('Power ' + r0(m.power) + ' MW | O2 to blow ' + r0(m.o2Rem) + ' Nm3 | ' + m.jets + ' jet' + (m.jets > 1 ? 's' : '') + ' at ' + r0(m.perJet) + ' Nm3/h | lime ' + r0(m.limeTotal) + ' kg | ' + (m.finalKwhT !== null ? r0(m.finalKwhT) : r0(m.eTotal / m.total)) + ' kWh/t');
-    L.push('Plan (' + mmss(pr.tEnd) + ' to tap):');
+    L.push('Plan (' + Math.round(pr.tEnd) + ' min to tap):');
     stepsData(m, pr).forEach(x => L.push('  ' + mmss(x[0]) + ' ' + x[1] + ': ' + x[2]));
     return L.join('\n');
 }
@@ -2179,8 +2190,9 @@ const MLRef = (function () {
     const st = [...document.querySelectorAll('#steps .step')];
     if (st.length) {
       const g = (s, q) => (s.querySelector(q) || {}).textContent || '';
+      const m2 = s => { const m = /^(\d+):(\d\d)$/.exec(s || ''); return m ? String(Math.round(+m[1] + (+m[2]) / 60)) + ' min' : s; };
       const tm0 = g(st[0], '.tm'), tm1 = st[1] ? g(st[1], '.tm') : '';
-      next.innerHTML = '<div class="l">Do this next</div><div class="t">' + g(st[0], 'b').replace(/</g, '&lt;') + '</div><div class="d">' + g(st[0], '.d').replace(/</g, '&lt;') + '</div><div class="w">' + (/^0:00$/.test(tm0) && (!tm1 || /^0:00$/.test(tm1)) ? 'Window: now' : /^0:00$/.test(tm0) ? 'Window: now to ' + tm1 + ' from now' : (tm1 ? 'Window: ' + tm0 + ' to ' + tm1 + ' from now' : 'From ' + tm0 + ' from now')) + '</div>';
+      next.innerHTML = '<div class="l">Do this next</div><div class="t">' + g(st[0], 'b').replace(/</g, '&lt;') + '</div><div class="d">' + g(st[0], '.d').replace(/</g, '&lt;') + '</div><div class="w">' + (/^0:00$/.test(tm0) && (!tm1 || /^0:00$/.test(tm1)) ? 'Window: now' : /^0:00$/.test(tm0) ? 'Window: now to ' + m2(tm1) + ' from now' : (tm1 ? 'Window: ' + m2(tm0) + ' to ' + m2(tm1) + ' from now' : 'From ' + m2(tm0) + ' from now')) + '</div>';
     }
     const v = s => { const e = si.querySelectorAll('.stat')[s]; return e ? [e.querySelector('.v').textContent, e.querySelector('.s').textContent] : ['', '']; };
     const pt = (document.getElementById('profT') || {}).textContent || '';
@@ -2425,8 +2437,8 @@ const MLRef = (function () {
     const rows4 = [['Bath now', f0(m.tNow) + ' C'], ['Liquidus', f0(m.tLiq) + ' C'], ['Tap aim', f0(m.tAim) + ' C (' + (m.dT > 0 ? f0(m.dT) + ' C to gain' : 'reached') + ')']];
     const rows5 = [['FeMn', f0(m.feMn) + ' kg' + (window.mlBags ? window.mlBags(m.feMn, 'feMn') : '')], ['FeSi', (m.siNeed > 0 ? f0(m.feSi) : 0) + ' kg' + (m.siNeed > 0 && window.mlBags ? window.mlBags(m.feSi, 'feSi') : '')], ['Energy', f0(kwhT) + ' kWh/t'], ['Tap temperature aim', f0(m.tAim) + ' C']];
     const X = (typeof MLRef !== 'undefined') ? MLRef.extra(m, pr) : null; if (X) { X.p1.forEach(r => rows1.push(r)); X.p2.forEach(r => rows2.push(r)); X.p3.forEach(r => rows3.push(r)); X.p4.forEach(r => rows4.push(r)); X.pre.forEach(r => rows1.unshift(r)); }
-    card.innerHTML = '<div class="imp-t">Whole heat, start to tap</div><div class="pf-sum"><div><span>Tap in</span><b>' + (typeof mmss === 'function' ? mmss(tE) : f0(tE) + ' min') + '</b></div><div><span>Tap at</span><b>' + tm(tE) + '</b></div><div><span>Energy</span><b>' + f0(kwhT) + ' kWh/t</b></div></div>'
-      + (tE <= 10 ? '<div class="pf-tapw">' + (tE <= 0.5 ? 'Tap window is open' : 'Tap window opens in ' + (typeof mmss === 'function' ? mmss(tE) : f0(tE) + ' min')) + '</div>' : '') + ph(1, 'Charge and melt', A, tM, rows1) + ph(2, 'Oxygen and carbon', o2s, tE, rows2) + ph(3, 'Slag', o2s, tE, rows3) + ph(4, 'Temperature', tM, tE, rows4) + ph(5, 'Tap', tE, null, rows5, 'tap')
+    card.innerHTML = '<div class="imp-t">Whole heat, start to tap</div><div class="pf-sum"><div><span>Tap in</span><b>' + f0(tE) + ' min' + '</b></div><div><span>Tap at</span><b>' + tm(tE) + '</b></div><div><span>Energy</span><b>' + f0(kwhT) + ' kWh/t</b></div></div>'
+      + (tE <= 10 ? '<div class="pf-tapw">' + (tE <= 0.5 ? 'Tap window is open' : 'Tap window opens in ' + f0(tE) + ' min') + '</div>' : '') + ph(1, 'Charge and melt', A, tM, rows1) + ph(2, 'Oxygen and carbon', o2s, tE, rows2) + ph(3, 'Slag', o2s, tE, rows3) + ph(4, 'Temperature', tM, tE, rows4) + ph(5, 'Tap', tE, null, rows5, 'tap')
       + '<p class="sub" style="margin:10px 0 0">Updates when you change a reading, add a basket, or import a photo. Estimates from the model: check against the plant procedures.</p>';
   }
   const heat = $('s_heat'); if (heat) heat.addEventListener('input', () => setTimeout(draw, 30));
@@ -2746,8 +2758,9 @@ const MLRef = (function () {
     if (adv.offsetParent === null) return;
     const sts = document.querySelectorAll('#steps .step'); const st0 = sts[0];
     const gg = q => { const e = st0 && st0.querySelector(q); return e ? e.textContent.trim() : ''; };
+    const m2 = s => { const m = /^(\d+):(\d\d)$/.exec(s || ''); return m ? String(Math.round(+m[1] + (+m[2]) / 60)) + ' min' : s; };
     const tm0 = gg('.tm'), tm1 = sts[1] && sts[1].querySelector('.tm') ? sts[1].querySelector('.tm').textContent.trim() : '';
-    const win = !tm0 ? '' : /^0:00$/.test(tm0) && (!tm1 || /^0:00$/.test(tm1)) ? ' Window: now.' : /^0:00$/.test(tm0) ? ' Window: now to ' + tm1 + ' from now.' : (tm1 ? ' Window: ' + tm0 + ' to ' + tm1 + ' from now.' : '');
+    const win = !tm0 ? '' : /^0:00$/.test(tm0) && (!tm1 || /^0:00$/.test(tm1)) ? ' Window: now.' : /^0:00$/.test(tm0) ? ' Window: now to ' + m2(tm1) + ' from now.' : (tm1 ? ' Window: ' + m2(tm0) + ' to ' + m2(tm1) + ' from now.' : '');
     const lines = [gg('b'), gg('.d')].filter(Boolean);
     try { const m = (typeof model === 'function') ? model() : null; const ff = x => Math.round(x).toLocaleString('en-US'); if (m && /^Slag formers/.test(lines[0] || '')) lines[1] = ff(m.limeTotal) + ' kg lime and ' + ff(m.doloTotal) + ' kg dolomite, added early with the charge.'; } catch (e) {}
     if (win) lines.push(win.trim());
@@ -2840,7 +2853,7 @@ const MLRef = (function () {
   const fix = () => { document.querySelectorAll('input,select,textarea').forEach(e => { if (e.type === 'hidden' || e.type === 'file' || e.getAttribute('aria-label') || e.getAttribute('aria-labelledby')) return; if (e.labels && e.labels.length) { const t = e.labels[0].textContent.replace(/\s+/g, ' ').trim(); if (t) { e.setAttribute('aria-label', t.slice(0, 80)); return; } } if (e.id === 'agE') e.setAttribute('aria-label', 'Email address'); else if (e.id === 'agP') e.setAttribute('aria-label', 'Password'); else e.setAttribute('aria-label', nameOf(e)); }); };
   setInterval(fix, 2500); fix();
 })();
-(function () { const put = v => { const g = document.getElementById('authgate'), c = g && g.querySelector('.ag-card'); if (!c) return; if (!c.querySelector('#agVer')) { const d = document.createElement('div'); d.id = 'agVer'; d.textContent = 'MeltLab v' + v; d.style.cssText = 'text-align:center;font-size:13px;opacity:.8;padding:10px'; c.appendChild(d); } if (!c.querySelector('#agDemo')) { const a = document.createElement('a'); a.id = 'agDemo'; a.href = '?demo=1'; a.textContent = 'Try demo (no sign-in, made-up numbers)'; a.style.cssText = 'display:block;text-align:center;font-size:16px;font-weight:700;padding:12px;color:#FFB454;text-decoration:underline'; c.appendChild(a); } }; const BV = '3.55'; put(BV); setInterval(() => { put(BV); const f = document.querySelector('footer'); if (f && !f.dataset.v) { f.dataset.v = 1; f.textContent = 'MeltLab v' + BV + '. ' + f.textContent.replace(/^MeltLab v3\.\s*/, ''); } }, 800); })();
+(function () { const put = v => { const g = document.getElementById('authgate'), c = g && g.querySelector('.ag-card'); if (!c) return; if (!c.querySelector('#agVer')) { const d = document.createElement('div'); d.id = 'agVer'; d.textContent = 'MeltLab v' + v; d.style.cssText = 'text-align:center;font-size:13px;opacity:.8;padding:10px'; c.appendChild(d); } if (!c.querySelector('#agDemo')) { const a = document.createElement('a'); a.id = 'agDemo'; a.href = '?demo=1'; a.textContent = 'Try demo (no sign-in, made-up numbers)'; a.style.cssText = 'display:block;text-align:center;font-size:16px;font-weight:700;padding:12px;color:#FFB454;text-decoration:underline'; c.appendChild(a); } }; const BV = '3.56'; put(BV); setInterval(() => { put(BV); const f = document.querySelector('footer'); if (f && !f.dataset.v) { f.dataset.v = 1; f.textContent = 'MeltLab v' + BV + '. ' + f.textContent.replace(/^MeltLab v3\.\s*/, ''); } }, 800); })();
 
 // v3.46: delta vs last logged heat
 (function () {
@@ -2985,7 +2998,7 @@ const MLRef = (function () {
 
 /* ---- Self-update: check on open, focus, return, reconnect and every 5 minutes; reload at a safe moment ---- */
 (function () {
-  const VER = '3.55';
+  const VER = '3.56';
   try {
     const seen = localStorage.getItem('meltlab_ver_seen');
     if (seen && seen !== VER) {
