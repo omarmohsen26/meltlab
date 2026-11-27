@@ -308,7 +308,7 @@ body.paused #uxClock,body.paused #uxSmp,body.paused #uxProf{opacity:.55}body.pau
 .screen{padding-bottom:calc(210px + var(--toast-h,0px))!important}.ux-undo{bottom:166px}
 .ux-undo{top:max(12px,env(safe-area-inset-top));bottom:auto!important}.screen{padding-bottom:210px!important}
 .ux-undo{top:auto!important;bottom:164px!important;padding:4px 6px 4px 14px;min-height:0;font-size:14px}.ux-undo button{min-height:40px;padding:0 16px}
-#uxXset,#uxBags .field{display:block;margin:8px 0}#uxXset,#uxBags input{display:block;width:100%;box-sizing:border-box;margin-top:6px;min-height:52px;padding:0 16px;border-radius:16px;border:1px solid rgba(255,255,255,.18);background:rgba(0,0,0,.28);color:#fff;font-size:18px;font-family:inherit}
+#uxXset .field,#uxBags .field{display:block;margin:8px 0}#uxXset input,#uxBags input{display:block;width:100%;box-sizing:border-box;margin-top:6px;min-height:52px;padding:0 16px;border-radius:16px;border:1px solid rgba(255,255,255,.18);background:rgba(0,0,0,.28);color:#fff;font-size:18px;font-family:inherit}
 .ux-step{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:-2px 0 10px}.ux-step .btn{min-height:48px;flex:1}.ux-step span{color:var(--muted);font-size:13px;min-width:44px;text-align:center}
 .ux-based.stale{border:1px solid #ff6b6b}.ux-based.stale .ck-sub{color:#ff9a9a;font-weight:700}.ux-chk .chk input[type=checkbox]{width:24px;height:24px;vertical-align:middle;margin-right:8px}.ux-chk input[type=text]{flex:1;min-height:48px;margin-right:8px;padding:0 12px;border-radius:14px;border:1px solid rgba(255,255,255,.18);background:rgba(0,0,0,.28);color:#fff;font-size:16px}
 .ux-sync{position:fixed;top:4px;right:8px;z-index:40;font-size:11px;padding:2px 8px;border-radius:999px;background:rgba(0,0,0,.45);color:#aab;pointer-events:none}.ux-sync.off{background:#FFB454;color:#1a1305;font-weight:700}
@@ -378,7 +378,7 @@ div.row:has(#matEdit){display:flex;gap:10px;align-items:stretch}
 #uxGrp .card,#uxGrp #uxXset,#uxGrp #uxBags,#uxGrp #uxPrefs{background-image:none!important;background-color:transparent!important}
 #uxGrp label.field,#uxGrp label{font-size:15px;font-weight:700;display:block}
 #uxGrp input[type=number],#uxGrp input[type=text],#uxGrp input:not([type]){background:rgba(255,255,255,.08)!important;border:1px solid rgba(255,255,255,.25)!important;border-radius:12px!important;padding:10px 12px!important;min-height:48px;font-size:18px;color:inherit;width:100%;box-sizing:border-box;margin-top:6px}
-html:not(.night) #uxGrp input[type=number],html:not(.night) #uxGrp input[type=text]{background:#fff!important;border-color:#bbb!important}
+html[data-theme=light]:not(.night) #uxGrp input[type=number],html[data-theme=light]:not(.night) #uxGrp input[type=text]{background:#fff!important;border-color:#bbb!important}
 #uxGrp .ck-row{display:flex;align-items:center;justify-content:space-between;gap:12px}
 .ux-sheet .sh-i{width:100%;box-sizing:border-box;min-height:52px;font-size:18px;padding:10px 12px;margin:0 0 14px;border-radius:12px;border:1px solid rgba(128,128,128,.5);background:rgba(255,255,255,.08);color:inherit;font-family:inherit}
 html:not(.night) .ux-sheet .sh-i{background:#fff;color:#1b1b1b}
@@ -2568,7 +2568,7 @@ const MLRef = (function () {
   const st = $('s_settings');
   if (st) {
     const sc = document.createElement('div'); sc.className = 'card'; sc.id = 'uxXset';
-    sc.innerHTML = '<h3 style="margin:0 0 6px">Inputs check</h3><p class="sub" style="margin:0 0 10px">The "Inputs disagree" card shows when temperature rises by at least this much, at least this many minutes apart, and carbon has not come down. These are generic starting values, not plant figures. Set your own.</p><label class="field">Minimum temperature rise (C)<input id="xsT" type="number" inputmode="decimal" min="1" step="1"></label><label class="field">Minimum minutes between the two entries (min)<input id="xsG" type="number" inputmode="decimal" min="1" step="1"></label>';
+    sc.innerHTML = '<h3 style="margin:0 0 6px">Inputs check</h3><p class="sub" style="margin:0 0 10px">The "Inputs disagree" card shows when temperature rises by at least this much, at least this many minutes apart, and carbon has not come down. These are generic starting values, not plant figures. Set your own.</p><label class="field">Minimum temperature rise (°C)<input id="xsT" type="number" inputmode="decimal" min="1" step="1"></label><label class="field">Minimum minutes between the two entries (min)<input id="xsG" type="number" inputmode="decimal" min="1" step="1"></label>';
     const hd = st.querySelector('header'); (hd || st.firstElementChild).insertAdjacentElement('afterend', sc);
     const a = sc.querySelector('#xsT'), b = sc.querySelector('#xsG'); a.value = X.dT; b.value = X.gap;
     const sv = () => { const d = parseFloat(a.value), g = parseFloat(b.value); if (d > 0) X.dT = d; if (g > 0) X.gap = g; try { localStorage.setItem(SK, JSON.stringify(X)); } catch (e) {} note(); };
@@ -2861,7 +2861,7 @@ const MLRef = (function () {
   const fix = () => { document.querySelectorAll('input,select,textarea').forEach(e => { if (e.type === 'hidden' || e.type === 'file' || e.getAttribute('aria-label') || e.getAttribute('aria-labelledby')) return; if (e.labels && e.labels.length) { const t = e.labels[0].textContent.replace(/\s+/g, ' ').trim(); if (t) { e.setAttribute('aria-label', t.slice(0, 80)); return; } } if (e.id === 'agE') e.setAttribute('aria-label', 'Email address'); else if (e.id === 'agP') e.setAttribute('aria-label', 'Password'); else e.setAttribute('aria-label', nameOf(e)); }); };
   setInterval(fix, 2500); fix();
 })();
-(function () { const put = v => { const g = document.getElementById('authgate'), c = g && g.querySelector('.ag-card'); if (!c) return; if (!c.querySelector('#agVer')) { const d = document.createElement('div'); d.id = 'agVer'; d.textContent = 'MeltLab v' + v; d.style.cssText = 'text-align:center;font-size:13px;opacity:.8;padding:10px'; c.appendChild(d); } if (!c.querySelector('#agDemo')) { const a = document.createElement('a'); a.id = 'agDemo'; a.href = '?demo=1'; a.textContent = 'Try demo (no sign-in, made-up numbers)'; a.style.cssText = 'display:block;text-align:center;font-size:16px;font-weight:700;padding:12px;color:#FFB454;text-decoration:underline'; c.appendChild(a); } }; const BV = '3.57'; put(BV); setInterval(() => { put(BV); const f = document.querySelector('footer'); if (f && !f.dataset.v) { f.dataset.v = 1; f.textContent = 'MeltLab v' + BV + '. ' + f.textContent.replace(/^MeltLab v3\.\s*/, ''); } }, 800); })();
+(function () { const put = v => { const g = document.getElementById('authgate'), c = g && g.querySelector('.ag-card'); if (!c) return; if (!c.querySelector('#agVer')) { const d = document.createElement('div'); d.id = 'agVer'; d.textContent = 'MeltLab v' + v; d.style.cssText = 'text-align:center;font-size:13px;opacity:.8;padding:10px'; c.appendChild(d); } if (!c.querySelector('#agDemo')) { const a = document.createElement('a'); a.id = 'agDemo'; a.href = '?demo=1'; a.textContent = 'Try demo (no sign-in, made-up numbers)'; a.style.cssText = 'display:block;text-align:center;font-size:16px;font-weight:700;padding:12px;color:#FFB454;text-decoration:underline'; c.appendChild(a); } }; const BV = '3.58'; put(BV); setInterval(() => { put(BV); const f = document.querySelector('footer'); if (f && !f.dataset.v) { f.dataset.v = 1; f.textContent = 'MeltLab v' + BV + '. ' + f.textContent.replace(/^MeltLab v3\.\s*/, ''); } }, 800); })();
 
 // v3.46: delta vs last logged heat
 (function () {
@@ -2921,7 +2921,7 @@ const MLRef = (function () {
   };
   const parts = r => { const p = []; if (r.c !== null) p.push(['Carbon ' + r.c.toFixed(2) + ' %', 'Carbon <b>' + r.c.toFixed(2) + ' %</b>']); if (r.t !== null) p.push([(r.c === null ? 'Temp ' : '') + Math.round(r.t) + ' \u00B0C', (r.c === null ? 'Temp ' : '') + '<b>' + Math.round(r.t) + ' \u00B0C</b>']); return p; };
   const recapTxt = r => parts(r).map(x => x[0]).join(' \u00B7 ');
-  const recapHTML = r => parts(r).map(x => x[1]).join(' &middot; ');
+  const recapHTML = r => parts(r).map(x => x[1].replace(/^Carbon <b>/, 'C <b>').replace(/^Temp <b>/, 'T <b>')).join(' &middot; ');
   const gradeOk = () => ['f_tgtC', 'f_tgtMn', 'f_tgtSi'].some(i => { const e = $(i); return e && String(e.value).trim() !== ''; });
   const updBar = () => {
     if (!bar) return; const r = vals();
@@ -3006,7 +3006,7 @@ const MLRef = (function () {
 
 /* ---- Self-update: check on open, focus, return, reconnect and every 5 minutes; reload at a safe moment ---- */
 (function () {
-  const VER = '3.57';
+  const VER = '3.58';
   try {
     const seen = localStorage.getItem('meltlab_ver_seen');
     if (seen && seen !== VER) {
