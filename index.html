@@ -410,6 +410,9 @@ html:not(.night) #uxGrp input::placeholder{color:#666!important}
 /* v3.52: cycle 4 - merged do-this-next source, done lines on Reasoning */
 .ux-src{display:none!important}
 .reco.done{display:block;padding:10px 14px;color:var(--muted);font-size:14px;border:1px dashed var(--line);border-radius:14px}
+
+/* v3.53: cycle 5 - brighter step text on Advice */
+html[data-theme=dark] .step .d{color:#DCE3DD}
 </style>
 </head>
 <body>
@@ -772,7 +775,7 @@ function profileSvg(m, pr) {
 function stepsData(m, pr) {
     const it = [];
     if (m.driRem > 0 || m.scrapRem > 0) it.push([0, 'Charge and melt', (m.driRem > 0 ? 'Feed DRI at ' + r0(pr.feed) + ' t/h. ' : '') + 'Power ' + r0(pr.P) + ' MW until the bath is molten.']);
-    it.push([Math.min(pr.tMelt * 0.3, pr.tMelt), 'Slag formers', r0(m.limeTotal) + ' kg lime and ' + r0(m.doloTotal) + ' kg dolomite, added early with the charge.']);
+    it.push([Math.min(pr.tMelt * 0.3, pr.tMelt), 'Slag formers', 'as above.']);
     if (m.o2Rem > 0) it.push([pr.o2Start, 'Oxygen and carbon injection', r0(m.o2Rem) + ' Nm3 O2 at ' + r0(pr.o2Flow) + ' Nm3/h over ' + m.jets + ' jet' + (m.jets > 1 ? 's' : '') + ', C injection ' + r1(pr.cFlow) + ' kg/min.']);
     if (m.dT > 0) it.push([pr.tMelt, 'Superheat', 'Bring the bath from ' + r0(m.tNow) + ' to ' + r0(m.tAim) + ' C, holding foamy slag.']);
     it.push([pr.tEnd, 'Tap', 'Alloys: ' + r0(m.feMn) + ' kg FeMn' + (window.mlBags ? window.mlBags(m.feMn, 'feMn') : '') + (m.siNeed > 0 ? ', ' + r0(m.feSi) + ' kg FeSi' + (window.mlBags ? window.mlBags(m.feSi, 'feSi') : '') : '') + '. Aim ' + r0(m.tAim) + ' C.']);
@@ -1590,7 +1593,7 @@ const MLRef = (function () {
   // Ask card on the Reasoning screen
   const why = document.getElementById('s_why');
   const c = document.createElement('div'); c.id = 'askCard';
-  c.innerHTML = '<h2>Ask the assistant</h2><div class="card ask">' +
+  c.innerHTML = '<h2>Advisory note</h2><div class="card ask">' +
     '<p class="sub" style="margin:0 0 8px">Explains and compares. It does not decide. Nothing leaves your phone until you tap Send.</p>' +
     '<textarea class="ai-in" id="aiQ" rows="3" placeholder="Ask a question about this heat, for example: why is the oxygen figure higher than my usual?"></textarea>' +
     '<div class="sub" style="margin:6px 0">Include these numbers (all off by default):</div><div id="aiBox" class="ai-box"></div>' +
@@ -2396,8 +2399,7 @@ const MLRef = (function () {
     const rows1 = [['Power', f0(pr.P) + ' MW (limit ' + f0(m.pwrLimit !== undefined ? m.pwrLimit : parseFloat(($('f_pwrLimit') || {}).value) || 0) + ')']];
     if (m.driRem > 0) rows1.push(['DRI feed', f0(pr.feed) + ' t/h, ' + f0(m.driRem) + ' t to go, about ' + f0(pr.feed > 0 ? m.driRem / pr.feed * 60 : 0) + ' min']);
     if (m.scrapRem > 0) rows1.push(['Scrap still to charge', f1(m.scrapRem) + ' t' + (sz ? ' (about ' + Math.ceil(m.scrapRem / sz) + ' baskets of ' + sz + ' t)' : '')]);
-    rows1.push(['Lime', f0(m.limeTotal) + ' kg from +' + f0(lime0) + ' min, steady with the charge']);
-    rows1.push(['Dolomite', f0(m.doloTotal) + ' kg, same timing']);
+    rows1.push(['Slag formers', 'as above']);
     const rows2 = [['Oxygen', f0(m.o2Rem) + ' Nm3 total at ' + f0(pr.o2Flow) + ' Nm3/h'], ['Jets', m.jets + ' running, ' + f0(m.perJet) + ' Nm3/h each'], ['Carbon injection', f0(pr.cFlow) + ' kg/min'], ['Carbon', (m.c0 === null ? 'no reading' : rcp(m.c0, m.ct)[0] + ' %') + ', aim ' + rcp(m.c0, m.ct)[1] + ' %']];
     const rows3 = [['Foamy slag', 'hold from the start of oxygen until tap'], ['Basicity aim (CaO/SiO2)', aim !== null ? String(aim) : 'see Settings'], ['FeO and foam', 'no target set in the app, follow the plant practice']];
     const rows4 = [['Bath now', f0(m.tNow) + ' C'], ['Liquidus', f0(m.tLiq) + ' C'], ['Tap aim', f0(m.tAim) + ' C (' + (m.dT > 0 ? f0(m.dT) + ' C to gain' : 'reached') + ')']];
@@ -2709,7 +2711,7 @@ const MLRef = (function () {
 // v3.41b: oxygen not entered
 (function () {
   const $ = id => document.getElementById(id); if (!$('heroO2')) return;
-  setInterval(() => { try { const tc = $('uxTap'); if (tc) tc.style.display = tc.innerText.trim() === '' ? 'none' : ''; } catch (e) {} try { const m = model(); if (m && !(m.o2Total > 0)) { $('heroO2').textContent = '--'; $('heroSub').textContent = 'Oxygen not entered. Set it in Heat (Nm\u00b3 plan).'; } } catch (e) {} }, 1500);
+  setInterval(() => { try { const tc = $('uxTap'); if (tc) tc.style.display = tc.innerText.trim() === '' ? 'none' : ''; } catch (e) {} try { const m = model(); if (m && !(m.o2Total > 0)) { $('heroO2').textContent = '--'; $('heroSub').textContent = 'Enter your oxygen reading in the Heat tab.'; } } catch (e) {} }, 1500);
 })();
 
 // v3.42: now/next/watch, what changed, keypad, audit trail, handover image, settings group
@@ -2726,7 +2728,9 @@ const MLRef = (function () {
     const gg = q => { const e = st0 && st0.querySelector(q); return e ? e.textContent.trim() : ''; };
     const tm0 = gg('.tm'), tm1 = sts[1] && sts[1].querySelector('.tm') ? sts[1].querySelector('.tm').textContent.trim() : '';
     const win = !tm0 ? '' : /^0:00$/.test(tm0) && (!tm1 || /^0:00$/.test(tm1)) ? ' Window: now.' : /^0:00$/.test(tm0) ? ' Window: now to ' + tm1 + ' from now.' : (tm1 ? ' Window: ' + tm0 + ' to ' + tm1 + ' from now.' : '');
-    const lines = [gg('b'), gg('.d')].filter(Boolean); if (win) lines.push(win.trim());
+    const lines = [gg('b'), gg('.d')].filter(Boolean);
+    try { const m = (typeof model === 'function') ? model() : null; const ff = x => Math.round(x).toLocaleString('en-US'); if (m && /^Slag formers/.test(lines[0] || '')) lines[1] = ff(m.limeTotal) + ' kg lime and ' + ff(m.doloTotal) + ' kg dolomite, added early with the charge.'; } catch (e) {}
+    if (win) lines.push(win.trim());
     const here = document.querySelector('#uxProf .pf.here'), nxt = here && here.nextElementSibling && here.nextElementSibling.classList.contains('pf') ? here.nextElementSibling : null;
     const watch = [], wwhy = [];
     const bs = $('uxBased'); if (bs && bs.style.display !== 'none' && bs.classList.contains('stale')) { const m = (bs.querySelector('.ck-sub') || {}).innerText || ''; watch.push(m.replace(/^OUT OF DATE\.\s*/, '').split('. Take')[0]); wwhy.push('The advice was built from readings older than the stale limit in Settings. Enter a new temperature and carbon so the advice matches the bath now.'); }
@@ -2816,7 +2820,7 @@ const MLRef = (function () {
   const fix = () => { document.querySelectorAll('input,select,textarea').forEach(e => { if (e.type === 'hidden' || e.type === 'file' || e.getAttribute('aria-label') || e.getAttribute('aria-labelledby')) return; if (e.labels && e.labels.length) { const t = e.labels[0].textContent.replace(/\s+/g, ' ').trim(); if (t) { e.setAttribute('aria-label', t.slice(0, 80)); return; } } if (e.id === 'agE') e.setAttribute('aria-label', 'Email address'); else if (e.id === 'agP') e.setAttribute('aria-label', 'Password'); else e.setAttribute('aria-label', nameOf(e)); }); };
   setInterval(fix, 2500); fix();
 })();
-(function () { const put = v => { const g = document.getElementById('authgate'), c = g && g.querySelector('.ag-card'); if (!c) return; if (!c.querySelector('#agVer')) { const d = document.createElement('div'); d.id = 'agVer'; d.textContent = 'MeltLab v' + v; d.style.cssText = 'text-align:center;font-size:13px;opacity:.8;padding:10px'; c.appendChild(d); } if (!c.querySelector('#agDemo')) { const a = document.createElement('a'); a.id = 'agDemo'; a.href = '?demo=1'; a.textContent = 'Try demo (no sign-in, made-up numbers)'; a.style.cssText = 'display:block;text-align:center;font-size:16px;font-weight:700;padding:12px;color:#FFB454;text-decoration:underline'; c.appendChild(a); } }; const BV = '3.52'; put(BV); setInterval(() => { put(BV); const f = document.querySelector('footer'); if (f && !f.dataset.v) { f.dataset.v = 1; f.textContent = 'MeltLab v' + BV + '. ' + f.textContent.replace(/^MeltLab v3\.\s*/, ''); } }, 800); })();
+(function () { const put = v => { const g = document.getElementById('authgate'), c = g && g.querySelector('.ag-card'); if (!c) return; if (!c.querySelector('#agVer')) { const d = document.createElement('div'); d.id = 'agVer'; d.textContent = 'MeltLab v' + v; d.style.cssText = 'text-align:center;font-size:13px;opacity:.8;padding:10px'; c.appendChild(d); } if (!c.querySelector('#agDemo')) { const a = document.createElement('a'); a.id = 'agDemo'; a.href = '?demo=1'; a.textContent = 'Try demo (no sign-in, made-up numbers)'; a.style.cssText = 'display:block;text-align:center;font-size:16px;font-weight:700;padding:12px;color:#FFB454;text-decoration:underline'; c.appendChild(a); } }; const BV = '3.53'; put(BV); setInterval(() => { put(BV); const f = document.querySelector('footer'); if (f && !f.dataset.v) { f.dataset.v = 1; f.textContent = 'MeltLab v' + BV + '. ' + f.textContent.replace(/^MeltLab v3\.\s*/, ''); } }, 800); })();
 
 // v3.46: delta vs last logged heat
 (function () {
@@ -2915,9 +2919,42 @@ const MLRef = (function () {
   });
 })();
 
+
+/* ---- v3.53: cycle 5 - shorter Advice, one Details fold, degree signs ---- */
+(function () {
+  const $ = id => document.getElementById(id), adv = $('s_advice');
+  // 3. timeline, why and scorecard into one closed Details section
+  if (adv) {
+    const prof = $('uxProf'), why = adv.querySelector('.card.why'), score = $('score');
+    if (prof && !$('uxDetails')) {
+      const det = document.createElement('details'); det.className = 'ux-fold'; det.id = 'uxDetails';
+      det.innerHTML = '<summary>Details</summary><div class="ux-body"></div>';
+      prof.insertAdjacentElement('beforebegin', det);
+      const body = det.querySelector('.ux-body');
+      const scoreH = [...adv.querySelectorAll('h2')].find(h => /Scorecard/.test(h.textContent));
+      [prof, why, scoreH, score].forEach(el => { if (el) body.appendChild(el); });
+    }
+    // 3b. Log this heat on the first screen, right after Right now
+    const tri = $('uxTri'), log = $('logBtn');
+    if (tri && log) tri.insertAdjacentElement('afterend', log);
+  }
+  // 2. degree sign on every bare "1234 C" temperature on Advice, Reasoning, History
+  const ids = ['s_advice', 's_why', 's_history'];
+  const re = /(\d) C(?![a-zA-Z°])/g;
+  const fix = root => {
+    const w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT); const jobs = []; let x;
+    while ((x = w.nextNode())) { re.lastIndex = 0; if (re.test(x.nodeValue)) jobs.push(x); }
+    jobs.forEach(x => { x.nodeValue = x.nodeValue.replace(re, '$1 \u00b0C'); });
+  };
+  const run = () => ids.forEach(id => { const el = $(id); if (el) fix(el); });
+  let tm; new MutationObserver(() => { clearTimeout(tm); tm = setTimeout(run, 60); })
+    .observe(document.body, { childList: true, subtree: true, characterData: true });
+  run();
+})();
+
 /* ---- Self-update: check on open, focus, return, reconnect and every 5 minutes; reload at a safe moment ---- */
 (function () {
-  const VER = '3.52';
+  const VER = '3.53';
   try {
     const seen = localStorage.getItem('meltlab_ver_seen');
     if (seen && seen !== VER) {
