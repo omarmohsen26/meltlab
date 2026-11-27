@@ -406,6 +406,10 @@ html:not(.night) #uxGrp input::placeholder{color:#666!important}
 .screen header{scroll-margin-top:70px}
 #heatGrid{grid-template-columns:repeat(3,1fr);gap:8px}
 #heatGrid .field{padding:10px 10px}
+
+/* v3.52: cycle 4 - merged do-this-next source, done lines on Reasoning */
+.ux-src{display:none!important}
+.reco.done{display:block;padding:10px 14px;color:var(--muted);font-size:14px;border:1px dashed var(--line);border-radius:14px}
 </style>
 </head>
 <body>
@@ -780,6 +784,7 @@ function stepsHtml(m, pr) {
 }
 
 /* ---------- render ---------- */
+function doneLine(t) { return '<div class="reco done"><span>' + t + '</span></div>'; }
 function reco(title, value, formula, why, svg) {
     return '<div class="reco"><div class="reco-eyebrow">' + title + '</div><div class="reco-value">' + value + '</div>'
         + (svg || '') + '<div class="reco-formula">' + formula + '</div><div class="reco-why">' + why + '</div></div>';
@@ -847,16 +852,16 @@ function render() {
     R.push(reco('Energy to tap', r0(m.eRem) + ' kWh to go - ~' + mmss(m.minOn) + ' power-on' + (m.finalKwhT !== null ? ' - final ~' + r0(m.finalKwhT) + ' kWh/t' : ''),
         'Melt remaining ' + r0(m.eMeltRem) + ' kWh (' + r0(m.driRem) + ' t DRI x ' + konst('eDri') + ' + ' + r0(m.scrapRem) + ' t scrap x ' + konst('eScrap') + ') + superheat ' + r0(m.eHeat) + ' kWh (' + r0(m.dT) + ' C x ' + r0(m.total) + ' t x ' + konst('cpLiquid') + ') - decarb credit ' + r0(m.credit) + ' kWh (' + r0(m.kgC) + ' kg C x ' + konst('creditKwhPerKgC') + '). Minutes = energy / power.',
         'The optimal heat runs full available power while the slag is foamed and the arc covered, then refines. ' + (m.power < numOr('pwrLimit', 60) ? 'You have headroom to the transformer limit (' + r0(numOr('pwrLimit', 60)) + ' MW) if the practice allows.' : 'You are at the transformer limit.') + (m.finalKwhT !== null ? ' Projected final intensity ' + r0(m.finalKwhT) + ' kWh/t - compare with your good heats.' : '')));
-    R.push(reco('Oxygen - blow ' + r0(m.o2Rem) + ' Nm3 more', m.jets + ' jet' + (m.jets > 1 ? 's' : '') + ' at ' + r0(m.perJet) + ' Nm3/h',
+    R.push(Math.round(m.o2Rem) > 0 ? reco('Oxygen - blow ' + r0(m.o2Rem) + ' Nm3 more', m.jets + ' jet' + (m.jets > 1 ? 's' : '') + ' at ' + r0(m.perJet) + ' Nm3/h',
         m.jetAdvice + '. C to remove = (' + rcp(m.c0 ?? 0, m.ct)[0] + ' - ' + rcp(m.c0 ?? 0, m.ct)[1] + ') x 10 x ' + r0(m.total) + ' = ' + r0(m.kgC) + ' kg. O2 = kg C x (' + konst('fCO') + ' x 0.933 + ' + r2(1 - konst('fCO')) + ' x 1.866) / ' + konst('o2Utilization') + ' = ' + r0(m.o2Total) + ' Nm3 total' + (m.o2Used ? ', ' + r0(m.o2Used) + ' already blown' : '') + '. Flow for a ' + r0(m.window) + ' min window = ' + (m.flowNeeded === Infinity ? '-' : r0(m.flowNeeded)) + ' Nm3/h.',
         'Decarburization is free energy: each kg of carbon blown returns about ' + konst('creditKwhPerKgC') + ' kWh to the bath. The jet program keeps every running jet inside its coherent band with the fewest jets - below the band the jet splashes, above it the nozzle erodes.',
-        '<svg viewBox="0 0 320 52">' + bandSvg(m) + '</svg>'));
-    R.push(reco('Carbon injection - ride the oxygen', '~' + r1(m.cRate) + ' kg/min now, ~' + r0(m.cTotal) + ' kg this heat',
+        '<svg viewBox="0 0 320 52">' + bandSvg(m) + '</svg>') : doneLine('Oxygen - Done: no more oxygen needed'))
+    R.push(Math.round(m.o2Rem) > 0 && Math.round(m.cTotal) > 0 ? reco('Carbon injection - ride the oxygen', '~' + r1(m.cRate) + ' kg/min now, ~' + r0(m.cTotal) + ' kg this heat',
         'Rate = ' + konst('cInjPerNm3') + ' kg per Nm3 x ' + r0(Math.min(m.flowNeeded === Infinity ? 0 : m.flowNeeded, m.jets * m.jetMax)) + ' Nm3/h / 60 = ' + r1(m.cRate) + ' kg/min. Heat total tracks total O2: ' + konst('cInjPerNm3') + ' x ' + r0(m.o2Total) + ' = ' + r0(m.cTotal) + ' kg.',
-        'Injection carbon builds the FeO-CO foam that buries the arc. Foam is what lets you hold maximum power without eating the panels: inject in step with the O2 flow, not on a fixed schedule.'));
-    if (m.dT > 0) R.push(reco('Superheat - ' + r0(m.dT) + ' C to tap aim', '~' + r0(m.eHeat / (m.power * 1000) * 60) + ' min at ' + r0(m.power) + ' MW',
+        'Injection carbon builds the FeO-CO foam that buries the arc. Foam is what lets you hold maximum power without eating the panels: inject in step with the O2 flow, not on a fixed schedule.') : doneLine('Carbon injection - Done: nothing left to inject'))
+    R.push(Math.round(m.dT) > 0 ? reco('Superheat - ' + r0(m.dT) + ' C to tap aim', '~' + r0(m.eHeat / (m.power * 1000) * 60) + ' min at ' + r0(m.power) + ' MW',
         'Tap aim ' + r0(m.tAim) + ' C = liquidus ' + r0(m.tLiq) + ' + ' + konst('tundishSuperheat') + ' superheat + ' + konst('ladleDrop') + ' ladle drop. Energy = ' + r0(m.dT) + ' x ' + r0(m.total) + ' x ' + konst('cpLiquid') + ' = ' + r0(m.eHeat) + ' kWh.',
-        'Liquid steel holds about 0.23 kWh per tonne per degree. The cheapest degrees are the ones you never lose: good foam coverage and short delays beat reheating.'));
+        'Liquid steel holds about 0.23 kWh per tonne per degree. The cheapest degrees are the ones you never lose: good foam coverage and short delays beat reheating.') : doneLine('Superheat - Done: bath is at the tap aim'))
     R.push(reco('Slag formers', r0(m.limeTotal) + ' kg lime + ' + r0(m.doloTotal) + ' kg dolo (heat totals)',
         'SiO2 = DRI gangue (' + r0(m.driTotal) + ' t x ' + konst('driGangue') + '% = ' + r0(m.driTotal * konst('driGangue') * 10) + ' kg) + oxidized Si (' + r0(m.si * 10 * m.total * 60 / 28) + ' kg) = ' + r0(m.sio2) + ' kg. Lime = SiO2 x B2 ' + konst('basicity') + ' / ' + konst('limeCao') + ' = ' + r0(m.limeTotal) + ' kg. Dolo = ' + konst('doloKgPerT') + ' kg/t x ' + r0(m.total) + ' t.',
         'DRI carries its gangue straight into the slag, so DRI heats need much more lime than scrap heats. Dolomite feeds the MgO that protects the bricks; feed both early with the DRI, not at the end.'));
@@ -933,8 +938,8 @@ function drawH() {
         + (x.txt ? '<details class="hist-d"><summary>Full plan</summary><pre>' + esc(x.txt) + '</pre></details>' : '')
         + '<div class="row">' + (x.inp ? '<button class="btn ghost sm" data-load="' + i + '">Load inputs</button>' : '') + (x.txt ? '<button class="btn ghost sm" data-copy="' + i + '">Copy</button>' : '') + '<button class="btn ghost sm" data-del="' + i + '">Delete</button></div></div>').join('')
         : '<div class="card"><div class="imp-t">What you will see here</div><div class="imp-s">Each heat you log from the Advice screen: its readings, the plan, and buttons to reload the inputs or copy the handover. Entries stay on this device only.</div></div>'
-        + '<div class="card hist-ex"><div class="score-top"><span>Example, not saved</span><span class="val">Heat 1</span></div><div class="reco-formula" style="margin-top:8px">C 0.19 % | 1,597 C | charge 100 t | O2 to go 320 Nm3 | 2 jets | 495 kWh/t</div><div class="imp-s" style="margin-top:8px">Made-up numbers, only to show what a logged heat looks like.</div></div>'
-        + '<p class="sub" style="margin:14px 4px">No heats yet. Get advice for a heat, then tap Log this heat on the Advice screen to keep it here.</p><button class="btn" data-go="heat">Start a heat</button>';
+        + '<div class="card hist-ex"><div class="score-top"><span>Example, not saved</span><span class="val">Heat 1</span></div><div class="reco-formula" style="margin-top:8px">C 0.xx % | xxxx °C | charge xxx t | O2 to go xxx Nm3 | x jets | xxx kWh/t</div><div class="imp-s" style="margin-top:8px">Placeholder values, only to show what a logged heat looks like. Your heats appear here after you tap Log this heat on the Advice screen.</div></div>'
+        + '<button class="btn" data-go="heat" style="margin-top:14px">Start a heat</button>';
     el.querySelectorAll('[data-del]').forEach(b => b.addEventListener('click', async () => { if ((await window.__mlSheet('Delete this heat?', 'This logged heat is deleted from this device.', [{ l: 'Keep', v: 'no', p: 1 }, { l: 'Delete', v: 'yes' }])) !== 'yes') return; const a = loadH(); a.splice(+b.dataset.del, 1); saveH(a); drawH(); }));
     el.querySelectorAll('[data-copy]').forEach(b => b.addEventListener('click', () => shareText(loadH()[+b.dataset.copy].txt, b)));
     el.querySelectorAll('[data-load]').forEach(b => b.addEventListener('click', () => { const x = loadH()[+b.dataset.load]; Object.keys(els).forEach(k => { if (x.inp[k] !== undefined) els[k].value = x.inp[k]; }); render(); go('heat'); }));
@@ -2144,7 +2149,7 @@ const MLRef = (function () {
     f.value = t.value.trim(); f.dispatchEvent(new Event('input', { bubbles: true }));
   });
   // do-this-next card + plain time rows
-  const next = document.createElement('div'); next.className = 'card ux-next';
+  const next = document.createElement('div'); next.className = 'card ux-next ux-src';
   const hero = adv.querySelector('.hero'); hero.insertAdjacentElement('afterend', next);
   const rows = document.createElement('div'); rows.className = 'ux-rows'; const si = document.getElementById('statusIn'); si.parentNode.insertBefore(rows, si);
   const upd = () => {
@@ -2688,8 +2693,8 @@ const MLRef = (function () {
     const anchor = $('uxChk') || $('uxBased'); (anchor || adv.firstElementChild).insertAdjacentElement('afterend', bar);
     const say = $('advSay'); const spk = t => t.replace(/(\d{1,3}(?:,\d{3})+|\d+(?:\.\d+)?)\s*(?:\u00B0\s*)?C\b(?!\w)/g, (m, n) => { const v = parseFloat(n.replace(/,/g, '')); return v.toLocaleString('en-US') + ' degrees Celsius'; }).replace(/(\d)\s*%/g, '$1 percent').replace(/(\d)\s*MW\b/g, '$1 megawatts').replace(/(\d)\s*t\/h\b/g, '$1 tonnes per hour').replace(/(\d)\s*kWh\/t\b/g, '$1 kilowatt hours per tonne').replace(/(\d)\s*kg\b/g, '$1 kilograms').replace(/(\d)\s*min\b/g, '$1 minutes').replace(/\+(\d)/g, 'plus $1');
     window.__mlSpeakText = spk;
-    say.onclick = () => { try { const ss = window.speechSynthesis; if (!ss) { window.__mlSheet('Read aloud', 'This browser cannot read aloud.', [{ l: 'OK', v: 'ok', p: 1 }]); return; } if (ss.speaking || say.dataset.on === '1') { ss.cancel(); say.dataset.on = '0'; say.textContent = 'Read aloud'; return; } const n = adv.querySelector('.ux-next'); const t = spk(((n && n.innerText) || adv.innerText.slice(0, 400)).replace(/\s+/g, ' ')); window.__mlLastSpoken = t; const u = new SpeechSynthesisUtterance(t); u.onend = u.onerror = () => { say.dataset.on = '0'; say.textContent = 'Read aloud'; }; say.dataset.on = '1'; say.textContent = 'Stop reading'; ss.speak(u); } catch (e) {} };
-    window.__mlPrintPrep = on => { const keep = new Set(['uxTri', 'uxBased']); const nx = adv.querySelector('.ux-next'); const nc = nx && nx.closest('.card'); [...adv.children].forEach(c => { c.classList.toggle('pr-hide', on && !(c.tagName === 'HEADER' || keep.has(c.id) || c === nc || (nc && c.contains(nx)))); }); document.body.classList.toggle('printing', on); };
+    say.onclick = () => { try { const ss = window.speechSynthesis; if (!ss) { window.__mlSheet('Read aloud', 'This browser cannot read aloud.', [{ l: 'OK', v: 'ok', p: 1 }]); return; } if (ss.speaking || say.dataset.on === '1') { ss.cancel(); say.dataset.on = '0'; say.textContent = 'Read aloud'; return; } const n = document.getElementById('uxTri'); const t = spk(((n && n.innerText) || adv.innerText.slice(0, 400)).replace(/\s+/g, ' ')); window.__mlLastSpoken = t; const u = new SpeechSynthesisUtterance(t); u.onend = u.onerror = () => { say.dataset.on = '0'; say.textContent = 'Read aloud'; }; say.dataset.on = '1'; say.textContent = 'Stop reading'; ss.speak(u); } catch (e) {} };
+    window.__mlPrintPrep = on => { const keep = new Set(['uxTri', 'uxBased']); [...adv.children].forEach(c => { c.classList.toggle('pr-hide', on && !(c.tagName === 'HEADER' || keep.has(c.id))); }); document.body.classList.toggle('printing', on); };
     $('advPrint').onclick = () => { window.__mlPrintPrep(true); setTimeout(() => { try { window.print(); } catch (e) {} setTimeout(() => window.__mlPrintPrep(false), 500); }, 100); };
   }
   // shortcuts: double-tap repeats the last value, Enter moves to the next field
@@ -2717,7 +2722,11 @@ const MLRef = (function () {
   const hd = adv.querySelector('header'); (hd || adv.firstElementChild).insertAdjacentElement('afterend', tri);
   function triDraw() {
     if (adv.offsetParent === null) return;
-    const nx = adv.querySelector('.ux-next'); const lines = nx ? nx.innerText.split('\n').map(s => s.trim()).filter(Boolean).slice(1, 3) : [];
+    const sts = document.querySelectorAll('#steps .step'); const st0 = sts[0];
+    const gg = q => { const e = st0 && st0.querySelector(q); return e ? e.textContent.trim() : ''; };
+    const tm0 = gg('.tm'), tm1 = sts[1] && sts[1].querySelector('.tm') ? sts[1].querySelector('.tm').textContent.trim() : '';
+    const win = !tm0 ? '' : /^0:00$/.test(tm0) && (!tm1 || /^0:00$/.test(tm1)) ? ' Window: now.' : /^0:00$/.test(tm0) ? ' Window: now to ' + tm1 + ' from now.' : (tm1 ? ' Window: ' + tm0 + ' to ' + tm1 + ' from now.' : '');
+    const lines = [gg('b'), gg('.d')].filter(Boolean); if (win) lines.push(win.trim());
     const here = document.querySelector('#uxProf .pf.here'), nxt = here && here.nextElementSibling && here.nextElementSibling.classList.contains('pf') ? here.nextElementSibling : null;
     const watch = [], wwhy = [];
     const bs = $('uxBased'); if (bs && bs.style.display !== 'none' && bs.classList.contains('stale')) { const m = (bs.querySelector('.ck-sub') || {}).innerText || ''; watch.push(m.replace(/^OUT OF DATE\.\s*/, '').split('. Take')[0]); wwhy.push('The advice was built from readings older than the stale limit in Settings. Enter a new temperature and carbon so the advice matches the bath now.'); }
@@ -2807,7 +2816,7 @@ const MLRef = (function () {
   const fix = () => { document.querySelectorAll('input,select,textarea').forEach(e => { if (e.type === 'hidden' || e.type === 'file' || e.getAttribute('aria-label') || e.getAttribute('aria-labelledby')) return; if (e.labels && e.labels.length) { const t = e.labels[0].textContent.replace(/\s+/g, ' ').trim(); if (t) { e.setAttribute('aria-label', t.slice(0, 80)); return; } } if (e.id === 'agE') e.setAttribute('aria-label', 'Email address'); else if (e.id === 'agP') e.setAttribute('aria-label', 'Password'); else e.setAttribute('aria-label', nameOf(e)); }); };
   setInterval(fix, 2500); fix();
 })();
-(function () { const put = v => { const g = document.getElementById('authgate'), c = g && g.querySelector('.ag-card'); if (!c) return; if (!c.querySelector('#agVer')) { const d = document.createElement('div'); d.id = 'agVer'; d.textContent = 'MeltLab v' + v; d.style.cssText = 'text-align:center;font-size:13px;opacity:.8;padding:10px'; c.appendChild(d); } if (!c.querySelector('#agDemo')) { const a = document.createElement('a'); a.id = 'agDemo'; a.href = '?demo=1'; a.textContent = 'Try demo (no sign-in, made-up numbers)'; a.style.cssText = 'display:block;text-align:center;font-size:16px;font-weight:700;padding:12px;color:#FFB454;text-decoration:underline'; c.appendChild(a); } }; const BV = '3.51'; put(BV); setInterval(() => { put(BV); const f = document.querySelector('footer'); if (f && !f.dataset.v) { f.dataset.v = 1; f.textContent = 'MeltLab v' + BV + '. ' + f.textContent.replace(/^MeltLab v3\.\s*/, ''); } }, 800); })();
+(function () { const put = v => { const g = document.getElementById('authgate'), c = g && g.querySelector('.ag-card'); if (!c) return; if (!c.querySelector('#agVer')) { const d = document.createElement('div'); d.id = 'agVer'; d.textContent = 'MeltLab v' + v; d.style.cssText = 'text-align:center;font-size:13px;opacity:.8;padding:10px'; c.appendChild(d); } if (!c.querySelector('#agDemo')) { const a = document.createElement('a'); a.id = 'agDemo'; a.href = '?demo=1'; a.textContent = 'Try demo (no sign-in, made-up numbers)'; a.style.cssText = 'display:block;text-align:center;font-size:16px;font-weight:700;padding:12px;color:#FFB454;text-decoration:underline'; c.appendChild(a); } }; const BV = '3.52'; put(BV); setInterval(() => { put(BV); const f = document.querySelector('footer'); if (f && !f.dataset.v) { f.dataset.v = 1; f.textContent = 'MeltLab v' + BV + '. ' + f.textContent.replace(/^MeltLab v3\.\s*/, ''); } }, 800); })();
 
 // v3.46: delta vs last logged heat
 (function () {
@@ -2887,9 +2896,28 @@ const MLRef = (function () {
   upd();
 })();
 
+
+/* ---- v3.52: collapse the next-step block while a field is focused ---- */
+(function () {
+  const heat = document.getElementById('s_heat'); if (!heat) return;
+  const st = document.createElement('style');
+  st.textContent = 'body.nx-hide #nxWrap{display:none}body.nx-hide #s_heat{padding-bottom:62vh}';
+  document.head.appendChild(st);
+  const isFld = e => e && e.closest && e.closest('#s_heat') && /^(INPUT|TEXTAREA|SELECT)$/.test(e.tagName);
+  document.addEventListener('focusin', e => {
+    if (!isFld(e.target)) return;
+    document.body.classList.add('nx-hide');
+    const sc = () => { try { e.target.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch (x) {} };
+    setTimeout(sc, 80); setTimeout(sc, 350);
+  });
+  document.addEventListener('focusout', () => {
+    setTimeout(() => { if (!isFld(document.activeElement)) document.body.classList.remove('nx-hide'); }, 120);
+  });
+})();
+
 /* ---- Self-update: check on open, focus, return, reconnect and every 5 minutes; reload at a safe moment ---- */
 (function () {
-  const VER = '3.51';
+  const VER = '3.52';
   try {
     const seen = localStorage.getItem('meltlab_ver_seen');
     if (seen && seen !== VER) {
